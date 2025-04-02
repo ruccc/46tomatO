@@ -12,6 +12,7 @@ import javax.persistence.Entity;
 @NoArgsConstructor
 @Entity
 public class Account {
+
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     @Column(name = "id")
@@ -63,4 +64,5 @@ public class Account {
 
         return accountVO;
     }
+
 }
