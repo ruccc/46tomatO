@@ -9,6 +9,7 @@ import com.example.tomatomall.util.TokenUtil;
 import com.example.tomatomall.vo.AccountVO;
 import com.example.tomatomall.vo.Response;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -22,7 +23,8 @@ public class AccountServiceImpl implements AccountService {
     TokenUtil tokenUtil;
     @Autowired
     SecurityUtil securityUtil;
-
+    @Autowired
+    private PasswordEncoder passwordEncoder;
     @Override
     public AccountVO getAccountInfo(String username) throws TomatoException {
         Account account = accountRepository.findByUsername(username);
@@ -39,15 +41,19 @@ public class AccountServiceImpl implements AccountService {
             return "用户名已存在";
         }
        Account newAccount = accountVO.toPO();
+        newAccount.setPassword(passwordEncoder.encode(accountVO.getPassword()));
         accountRepository.save(newAccount);
         return "注册成功";
     }
 
     @Override
     public String login(String username, String password) throws TomatoException {
-        Account account = accountRepository.findByUsernameAndPassword(username, password);
+        Account account = accountRepository.findByUsername(username);
         if (account == null) {
             throw TomatoException.notLogin();
+        }
+        if (!passwordEncoder.matches(password, account.getPassword())) {
+            throw TomatoException.notLogin(); // 或者创建一个密码错误的异常
         }
         return tokenUtil.getToken(account);
     }
@@ -74,7 +80,7 @@ public class AccountServiceImpl implements AccountService {
             account.setAvatar(accountVO.getAvatar());
         }
         if (accountVO.getPassword() != null) {
-            account.setPassword(accountVO.getPassword());
+            account.setPassword(passwordEncoder.encode(accountVO.getPassword()));
         }
         if (accountVO.getRole() != null) {
             account.setRole(accountVO.getRole());
