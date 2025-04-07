@@ -22,26 +22,32 @@ public class TokenUtil {
 
     public String getToken(Account account) {
         Date date = new Date(System.currentTimeMillis() + EXPIRE_TIME);
+        // 不再使用密码作为密钥，改为使用固定密钥或从配置读取
+        String secret = "your-secret-key"; // 应该从配置文件中读取
         return JWT.create()
                 .withAudience(String.valueOf(account.getId()))
                 .withExpiresAt(date)
-                .sign(Algorithm.HMAC256(account.getPassword()));
+                .sign(Algorithm.HMAC256(secret));
     }
 
     public boolean verifyToken(String token) {
         try {
-            Integer userId=Integer.parseInt(JWT.decode(token).getAudience().get(0));
-            Account account= accountRepository.findById(userId).get();
-            JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(account.getPassword())).build();
+            Integer userId = Integer.parseInt(JWT.decode(token).getAudience().get(0));
+            Account account = accountRepository.findById(userId).orElse(null);
+            if (account == null) {
+                return false;
+            }
+            String secret = "your-secret-key"; // 应该与getToken中的一致
+            JWTVerifier jwtVerifier = JWT.require(Algorithm.HMAC256(secret)).build();
             jwtVerifier.verify(token);
             return true;
-        }catch (Exception e){
+        } catch (Exception e) {
             return false;
         }
     }
 
-    public Account getAccount(String token){
-        Integer userId=Integer.parseInt(JWT.decode(token).getAudience().get(0));
-        return accountRepository.findById(userId).get();
+    public Account getAccount(String token) {
+        Integer userId = Integer.parseInt(JWT.decode(token).getAudience().get(0));
+        return accountRepository.findById(userId).orElse(null);
     }
 }

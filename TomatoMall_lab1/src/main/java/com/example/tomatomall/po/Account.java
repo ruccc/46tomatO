@@ -23,7 +23,7 @@ public class Account {
     private String username;
 
     @Basic
-    @Column(name = "password")
+    @Column(name = "password", length = 100)
     private String password;
 
     @Basic
