@@ -5,34 +5,25 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import javax.persistence.Basic;
-import javax.persistence.Column;
 @Getter
 @Setter
 @NoArgsConstructor
 public class AccountVO {
     private Integer id;
 
-
     private String username;
 
-
     private String password;
-
 
     private String name;
 
     private String avatar;
 
-
     private String role;
-
 
     private String telephone;
 
-
     private String email;
-
 
     private String location;
 
@@ -43,7 +34,6 @@ public class AccountVO {
         account.setName(name);
         account.setAvatar(avatar);
         account.setRole(role);
-
 
         account.setTelephone(telephone);
         account.setEmail(email);

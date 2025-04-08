@@ -61,7 +61,6 @@ public class Account {
         accountVO.setEmail(email);
         accountVO.setLocation(location);
 
-
         return accountVO;
     }
 
