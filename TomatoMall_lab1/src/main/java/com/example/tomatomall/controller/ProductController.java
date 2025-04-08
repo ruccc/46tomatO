@@ -68,6 +68,7 @@ public class ProductController {
         }
     }
 
+
     @PatchMapping("/stockpile/{productId}")
     public Result<String> adjustStockpile(
             @PathVariable String productId,
