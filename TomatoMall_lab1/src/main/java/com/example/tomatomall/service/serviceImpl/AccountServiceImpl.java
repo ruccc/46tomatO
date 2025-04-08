@@ -7,29 +7,31 @@ import com.example.tomatomall.service.AccountService;
 import com.example.tomatomall.util.SecurityUtil;
 import com.example.tomatomall.util.TokenUtil;
 import com.example.tomatomall.vo.AccountVO;
-import com.example.tomatomall.vo.Response;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Service
 public class AccountServiceImpl implements AccountService {
-    @Autowired
+    final
     AccountRepository accountRepository;
-    @Autowired
+    final
     TokenUtil tokenUtil;
-    @Autowired
+    final
     SecurityUtil securityUtil;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
+
+    public AccountServiceImpl(TokenUtil tokenUtil, SecurityUtil securityUtil, PasswordEncoder passwordEncoder, AccountRepository accountRepository) {
+        this.tokenUtil = tokenUtil;
+        this.securityUtil = securityUtil;
+        this.passwordEncoder = passwordEncoder;
+        this.accountRepository = accountRepository;
+    }
+
     @Override
     public AccountVO getAccountInfo(String username) throws TomatoException {
         Account account = accountRepository.findByUsername(username);
         if (account==null) {
-            throw TomatoException.notFound(); // 需要先添加这个异常方法
+            throw TomatoException.notFound();
         }
         return account.toVO();
     }
@@ -40,7 +42,7 @@ public class AccountServiceImpl implements AccountService {
         if (account != null) {
             return "用户名已存在";
         }
-       Account newAccount = accountVO.toPO();
+        Account newAccount = accountVO.toPO();
         newAccount.setPassword(passwordEncoder.encode(accountVO.getPassword()));
         accountRepository.save(newAccount);
         return "注册成功";
@@ -53,7 +55,7 @@ public class AccountServiceImpl implements AccountService {
             throw TomatoException.notLogin();
         }
         if (!passwordEncoder.matches(password, account.getPassword())) {
-            throw TomatoException.notLogin(); // 或者创建一个密码错误的异常
+            throw TomatoException.notLogin();
         }
         return tokenUtil.getToken(account);
     }
@@ -61,7 +63,6 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public String updateAccount(AccountVO accountVO) {
         Account account = securityUtil.getCurrentAccount();
-
 
         if(accountVO.getName()!=null){
             account.setName(accountVO.getName());
