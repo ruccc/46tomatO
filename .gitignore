@@ -1,3 +1,8 @@
 .idea/
 .vscode/
 TomatoMall_lab1/target/
+TomatoMall_lab1/src/main/resources/application.yml
+TomatoMall_frontend/.idea
+TomatoMall_frontend/.vscode
+TomatoMall_lab1/.idea
+TomatoMall_lab1/.vscode
