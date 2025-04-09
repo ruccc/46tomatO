@@ -18,7 +18,10 @@
             <el-descriptions :column="1" border>
               <el-descriptions-item label="价格">¥{{ bookInfo.price }}</el-descriptions-item>
               <el-descriptions-item label="评分">{{ bookInfo.rate }}</el-descriptions-item>
-              <el-descriptions-item label="库存">{{ bookInfo.stockpile || 0 }}</el-descriptions-item>
+              <el-descriptions-item label="库存">
+                <span v-if="stockInfo">{{ stockInfo.amount }}</span>
+                <span v-else>暂无库存信息</span>
+              </el-descriptions-item>
               <el-descriptions-item label="描述">{{ bookInfo.description }}</el-descriptions-item>
               <el-descriptions-item label="详细信息">{{ bookInfo.detail }}</el-descriptions-item>
             </el-descriptions>
@@ -47,6 +50,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getInfo, deleteInfo } from '../../api/Book/products'
+import { getStockpileInfo } from '../../api/Book/stockpiles'
 import defaultCover from '../../assets/default-cover.jpg'
 
 const route = useRoute()
@@ -63,6 +67,7 @@ const bookInfo = ref({
   detail: '',
   stockpile: 0
 })
+const stockInfo = ref<{ id: string; amount: number; frozen: number; productId: string; } | null>(null)
 
 // 获取书籍详情
 const fetchBookInfo = async () => {
@@ -75,6 +80,20 @@ const fetchBookInfo = async () => {
     }
   } catch (error) {
     ElMessage.error('获取书籍信息失败')
+  }
+}
+
+// 获取库存信息
+const fetchStockInfo = async () => {
+  try {
+    const res = await getStockpileInfo(id)
+    if (res.data && res.data.code === 200) {
+      stockInfo.value = res.data.data
+    } else {
+      stockInfo.value = null
+    }
+  } catch (error) {
+    stockInfo.value = null
   }
 }
 
@@ -103,6 +122,7 @@ const handleDelete = () => {
 
 onMounted(() => {
   fetchBookInfo()
+  fetchStockInfo()
 })
 </script>
 
