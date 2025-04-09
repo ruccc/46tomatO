@@ -11,8 +11,9 @@ export const getStockpileInfo = (productId: string) => {
 
 //调整指定商品库存
 export const adjustStockpile = (productId: string, amount: number) => {
-    return axios.patch(`${STOCKPILES_MODULE}/${productId}`, { amount })
-        .then(res => {
-            return res;
-        })
+    return axios.patch(`${STOCKPILES_MODULE}/${productId}`, { amount }, {
+        headers: { 'Content-Type': 'application/json' }
+    }).then(res => {
+        return res;
+    })
 };

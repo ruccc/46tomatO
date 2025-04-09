@@ -52,10 +52,10 @@ public class AccountServiceImpl implements AccountService {
     public String login(String username, String password) throws TomatoException {
         Account account = accountRepository.findByUsername(username);
         if (account == null) {
-            throw TomatoException.notLogin();
+            throw TomatoException.userNotFound();
         }
         if (!passwordEncoder.matches(password, account.getPassword())) {
-            throw TomatoException.notLogin();
+            throw TomatoException.wrongPassword();
         }
         return tokenUtil.getToken(account);
     }
