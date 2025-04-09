@@ -32,7 +32,7 @@ function handleLogin() {
       getUserDetail(username.value, token).then(userRes => {
         localStorage.setItem('name', userRes.data.name)
         localStorage.setItem('role', userRes.data.role)
-        router.push({path: "/dashboard"})
+        router.push({path: "/main"})
       })
     }
     else {

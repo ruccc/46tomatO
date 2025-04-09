@@ -4,8 +4,9 @@
     <el-header class="header">
       <div class="logo">番茄书城</div>
       <div class="nav-buttons">
-        <el-button type="primary" @click="$router.push('/products')">书籍列表</el-button>
-        <el-button type="primary" @click="$router.push('/dashboard')">个人中心</el-button>
+        <router-link to="/products" class="nav-button">书籍列表</router-link>
+        <router-link to="/dashboard" class="nav-button">个人中心</router-link>
+        <el-button type="danger" @click="handleLogout" size="small">退出登录</el-button>
       </div>
     </el-header>
 
@@ -26,9 +27,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 
-const username = ref(sessionStorage.getItem("username") || '')
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+
+const router = useRouter()
+
+const handleLogout = () => {
+  // 清除所有用户相关信息
+  localStorage.removeItem('token')
+  localStorage.removeItem('role')
+  localStorage.removeItem('username')
+  sessionStorage.clear()
+  
+  ElMessage.success('退出登录成功')
+  // 跳转到登录页
+  router.push('/login')
+}
 </script>
 
 <style scoped>
@@ -56,6 +71,19 @@ const username = ref(sessionStorage.getItem("username") || '')
 .nav-buttons {
   display: flex;
   gap: 1rem;
+  align-items: center;
+}
+
+.nav-button {
+  padding: 0.5rem 1rem;
+  color: white;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.3s;
+}
+
+.nav-button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .main-content {

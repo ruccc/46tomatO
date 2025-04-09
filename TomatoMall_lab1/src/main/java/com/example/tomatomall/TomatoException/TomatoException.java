@@ -9,6 +9,14 @@ public class TomatoException extends RuntimeException {
         return new TomatoException("未登录!");
     }
 
+    public static TomatoException userNotFound() {
+        return new TomatoException("用户不存在!");
+    }
+
+    public static TomatoException wrongPassword() {
+        return new TomatoException("密码错误!");
+    }
+
     public static TomatoException phoneAlreadyExist() {
         return new TomatoException("用户名已存在");
     }

@@ -6,7 +6,7 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/login'
+      redirect: '/login'  // 修改这里，默认重定向到 main 页面
     },
     {
       path: '/login',
@@ -118,6 +118,10 @@ router.beforeEach(async (to, _, next) => {
 
     // 允许匿名访问的路由（如登录、注册）
     if(to.meta.anonymous) {
+        if (token) {  // 如果已登录，直接跳转到主页
+            next('/main');
+            return;
+        }
         next();
         return;
     }

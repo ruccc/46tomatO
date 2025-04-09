@@ -34,7 +34,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getListInfo, type Specification } from '../../api/Book/products'
-import defaultCover from '../../assets/default-cover.jpg'
+import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
 const router = useRouter()
 // UpdateInfo 是用于更新的类型，不适合用作列表数据类型
