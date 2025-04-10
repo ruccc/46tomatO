@@ -19,6 +19,13 @@ export default defineConfig({
   server: {
     port: 3000,   //设定前端运行的端口
     open: true,
+    proxy: {
+      // 添加代理配置，将API请求代理到后端服务器
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
+      }
+    }
   },
   base: './'
 })

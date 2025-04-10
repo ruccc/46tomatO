@@ -169,12 +169,14 @@ const submitForm = async () => {
           }
           
           ElMessage.success('添加成功')
-          router.push(`/products/${newProductId}`)
+          // 直接返回到列表页，而不是跳转到详情页
+          router.push('/products')
         } else {
           ElMessage.error(res.data.msg || '添加失败')
         }
       } catch (error) {
         ElMessage.error('添加失败')
+        console.error('添加书籍时发生错误:', error)
       }
     } else {
       ElMessage.error('请填写完整信息')
