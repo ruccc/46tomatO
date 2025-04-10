@@ -2,6 +2,9 @@
   <div class="detail-container">
     <el-header class="header">
       <div class="logo">番茄书城</div>
+      <div class="nav-buttons">
+        <el-button type="default" @click="$router.push('/products')">返回列表</el-button>
+      </div>
     </el-header>
 
     <el-main class="main-content">
@@ -137,6 +140,7 @@ onMounted(() => {
   background-color: #ff4400;
   padding: 1rem 2rem;
   display: flex;
+  justify-content: space-between;
   align-items: center;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -145,6 +149,11 @@ onMounted(() => {
   color: white;
   font-size: 1.5rem;
   font-weight: bold;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 10px;
 }
 
 .main-content {
