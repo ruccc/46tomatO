@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -77,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
         product.setCover(dto.getCover());
         product.setDetail(dto.getDetail());
 
-        List<ProductSpecification> specs = dto.getSpecifications().stream()
+        Set<ProductSpecification> specs = dto.getSpecifications().stream()
                 .map(specDto -> {
                     ProductSpecification spec = new ProductSpecification();
                     spec.setItem(specDto.getItem());
@@ -85,7 +85,7 @@ public class ProductServiceImpl implements ProductService {
                     spec.setProduct(product);
                     return spec;
                 })
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
         product.setSpecifications(specs);
 
         Stockpile stockpile = new Stockpile();
@@ -100,7 +100,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductVO updateProduct(ProductUpdateDTO dto) {
+    public void updateProduct(ProductUpdateDTO dto) {
         Product product = productRepository.findById(dto.getId())
                 .orElseThrow(() -> new ProductNotFoundException(dto.getId()));
 
@@ -123,7 +123,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product updatedProduct = productRepository.save(product);
-        return productMapper.toVO(updatedProduct);
+        productMapper.toVO(updatedProduct);
     }
 
     @Override
@@ -136,7 +136,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public StockpileVO adjustStockpile(String productId, StockpileAdjustDTO dto) {
+    public void adjustStockpile(String productId, StockpileAdjustDTO dto) {
         Stockpile stockpile = stockpileRepository.findByProductId(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
 
@@ -153,7 +153,7 @@ public class ProductServiceImpl implements ProductService {
         stockpile.setFrozen(newFrozen);
 
         Stockpile updated = stockpileRepository.save(stockpile);
-        return stockpileMapper.toVO(updated);
+        stockpileMapper.toVO(updated);
     }
 
     @Override
