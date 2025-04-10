@@ -51,7 +51,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getInfo, deleteInfo } from '../../api/Book/products'
 import { getStockpileInfo } from '../../api/Book/stockpiles'
-import defaultCover from '../../assets/default-cover.jpg'
+import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
 const route = useRoute()
 const router = useRouter()

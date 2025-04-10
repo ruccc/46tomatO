@@ -2,6 +2,7 @@ package com.example.tomatomall.po;
 
 import lombok.*;
 import org.hibernate.annotations.GenericGenerator;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ public class Product {
     private String detail;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private Set<ProductSpecification> specifications = new Set<ProductSpecification>() {
 
         @Override
@@ -96,6 +98,7 @@ public class Product {
     };
 
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private Stockpile stockpile;
 
     public void addSpecification(ProductSpecification spec) {

@@ -143,17 +143,16 @@ const submitForm = async () => {
   await bookFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        // 过滤掉空的规格并转换为 Set
-        const validSpecs = new Set(
-          bookForm.specifications.filter(spec => 
-            spec.item.trim() && spec.value.trim()
-          )
+        // 过滤掉空的规格并保持为数组
+        const validSpecs = bookForm.specifications.filter(spec => 
+          spec.item.trim() && spec.value.trim()
         )
         
         // 准备提交数据
         const formData = {
           ...bookForm,
-          specifications: validSpecs // 使用 Set 类型的规格
+          specifications: validSpecs, // 使用数组而不是 Set
+          stockAmount: initialStock.value // 添加库存数量
         }
         
         const res = await addInfo(formData)
