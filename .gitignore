@@ -6,3 +6,5 @@ TomatoMall_frontend/.idea
 TomatoMall_frontend/.vscode
 TomatoMall_lab1/.idea
 TomatoMall_lab1/.vscode
+TomatoMall_frontend/auto-imports.d.ts
+TomatoMall_frontend/components.d.ts

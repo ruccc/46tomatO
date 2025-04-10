@@ -40,20 +40,32 @@
           
           <el-divider>规格信息</el-divider>
           
-          <div v-for="(spec, index) in specs" :key="index" class="spec-item">
+          <div v-for="(spec, index) in bookForm.specifications" :key="index" class="spec-item">
             <el-row :gutter="10">
               <el-col :span="10">
-                <el-form-item :label="'规格名称 ' + (index + 1)" :prop="'specifications.' + index + '.item'" :rules="[{ required: true, message: '规格名称不能为空', trigger: 'blur' }]">
+                <el-form-item 
+                  :label="'规格名称 ' + (index + 1)" 
+                  :prop="`specifications.${index}.item`"
+                  :rules="specRules.item"
+                >
                   <el-input v-model="spec.item" placeholder="如：作者、副标题、ISBN等"></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="10">
-                <el-form-item :label="'规格内容 ' + (index + 1)" :prop="'specifications.' + index + '.value'" :rules="[{ required: true, message: '规格内容不能为空', trigger: 'blur' }]">
+                <el-form-item 
+                  :label="'规格内容 ' + (index + 1)" 
+                  :prop="`specifications.${index}.value`"
+                  :rules="specRules.value"
+                >
                   <el-input v-model="spec.value" placeholder="请输入对应的内容"></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="4" class="spec-actions">
-                <el-button type="danger" @click="removeSpec(index)" :disabled="specs.length <= 1">删除</el-button>
+                <el-button 
+                  type="danger" 
+                  @click="removeSpec(index)" 
+                  :disabled="bookForm.specifications.length <= 1"
+                >删除</el-button>
               </el-col>
             </el-row>
           </div>
@@ -93,25 +105,23 @@ const initialStock = ref(0)
 // 默认规格
 const defaultSpec = (): Specification => {
   return {
-    id: '', // 新建时不需要ID，后端会生成
+    id: '',
     item: '',
     value: '',
-    productId: '' // 新建时不需要productId，后端会关联
+    productId: ''
   }
 }
 
-// 表单数据
+// 删除重复的 specs 定义，直接在 bookForm 中使用
 const bookForm = reactive({
   title: '',
   price: 0,
   rate: 0,
   description: '',
   cover: '',
-  detail: ''
+  detail: '',
+  specifications: [defaultSpec()] // 初始化一个规格
 })
-
-// 规格列表
-const specs = ref<Specification[]>([defaultSpec()])
 
 // 表单验证规则
 const rules = {
@@ -120,27 +130,30 @@ const rules = {
   rate: [{ required: true, message: '请输入评分', trigger: 'blur' }]
 }
 
-// 添加规格
-const addSpec = () => {
-  specs.value.push(defaultSpec())
+// 规格验证规则
+const specRules = {
+  item: [{ required: true, message: '规格名称不能为空', trigger: 'blur' }],
+  value: [{ required: true, message: '规格内容不能为空', trigger: 'blur' }]
 }
 
-// 删除规格
-const removeSpec = (index: number) => {
-  specs.value.splice(index, 1)
-}
-
-// 提交表单
+// 提交表单逻辑修改
 const submitForm = async () => {
   if (!bookFormRef.value) return
   
   await bookFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        // 过滤掉空的规格并转换为 Set
+        const validSpecs = new Set(
+          bookForm.specifications.filter(spec => 
+            spec.item.trim() && spec.value.trim()
+          )
+        )
+        
         // 准备提交数据
         const formData = {
           ...bookForm,
-          specifications: new Set(specs.value.filter(spec => spec.item && spec.value))
+          specifications: validSpecs // 使用 Set 类型的规格
         }
         
         const res = await addInfo(formData)
@@ -170,12 +183,24 @@ const submitForm = async () => {
   })
 }
 
+// 添加规格
+const addSpec = () => {
+  bookForm.specifications.push(defaultSpec())
+}
+
+// 删除规格
+const removeSpec = (index: number) => {
+  if (bookForm.specifications.length > 1) {
+    bookForm.specifications.splice(index, 1)
+  }
+}
+
 // 重置表单
 const resetForm = () => {
   if (bookFormRef.value) {
     bookFormRef.value.resetFields()
   }
-  specs.value = [defaultSpec()]
+  bookForm.specifications = [defaultSpec()]
   initialStock.value = 0
 }
 </script>
