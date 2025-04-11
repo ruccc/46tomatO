@@ -2,7 +2,7 @@
   <div class="product-container">
     <!-- 顶部导航 -->
     <el-header class="header">
-      <div class="logo">番茄书城</div>
+      <div class="logo">番茄书城 - 商品列表页</div>
       <div class="nav-buttons">
         <el-button 
           v-if="role === 'admin'" 
@@ -18,13 +18,36 @@
         >
           清空书籍
         </el-button>
+        <!-- 添加返回主页按钮 -->
+        <el-button
+          type="success"
+          @click="goToMain"
+        >
+          返回主页
+        </el-button>
+        <!-- 添加返回登录界面按钮 -->
+        <el-button
+          type="warning"
+          @click="goToLogin"
+        >
+          退出登录
+        </el-button>
       </div>
     </el-header>
 
     <!-- 主要内容区 -->
     <el-main class="main-content">
+      <!-- 清晰标识这是商品列表页 -->
+      <h1 class="page-title">商品列表页面</h1>
+      
+      <!-- 加载状态显示 -->
+      <div v-if="loading" class="loading-state">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <p>正在加载商品数据...</p>
+      </div>
+      
       <!-- 空状态显示 -->
-      <div v-if="books.length === 0" class="empty-state">
+      <div v-else-if="books.length === 0" class="empty-state">
         <img :src="defaultCover" alt="empty state" class="empty-icon">
         <p class="empty-text">暂无书籍，请添加新书籍</p>
         <!-- 移除了重复的添加书籍按钮 -->
@@ -51,9 +74,12 @@
 import { ref, onMounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
 import { getListInfo, deleteInfo, type Specification } from '../../api/Book/products'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
+// 添加loading状态
+const loading = ref(true)
 const router = useRouter()
 // UpdateInfo 是用于更新的类型，不适合用作列表数据类型
 // 需要定义一个包含 specifications 的完整类型
@@ -71,8 +97,31 @@ interface Product {
 const books = ref<Product[]>([])
 const role = ref(localStorage.getItem('role') || '')
 
+// 在组件挂载时输出一些调试信息
+console.log('ProductList组件已挂载')
+console.log('当前角色:', role.value)
+console.log('当前路由:', router.currentRoute.value.path)
+
 const goToDetail = (id: string) => {
   router.push(`/products/${id}`)
+}
+
+const goToLogin = () => {
+  // 清除登录状态
+  localStorage.removeItem('token')
+  localStorage.removeItem('role')
+  localStorage.removeItem('username')
+  
+  // 提示用户已登出
+  ElMessage.success('已退出登录，正在返回登录界面')
+  
+  // 跳转到登录页
+  router.replace('/login')
+}
+
+const goToMain = () => {
+  // 跳转到主页
+  router.push('/main')
 }
 
 const deleteBook = async (id: string) => {
@@ -150,15 +199,26 @@ const clearAllBooks = async () => {
 }
 
 const fetchBooks = async () => {
+  loading.value = true
+  console.log('开始获取商品列表数据')
+  
   // 检查用户是否已登录
   const token = localStorage.getItem('token')
   if (!token) {
+    console.log('未检测到token，跳转至登录页')
     ElMessage.error('您尚未登录，请先登录')
-    router.push('/login')
+    // 使用更可靠的跳转方式
+    router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+    setTimeout(() => {
+      if (router.currentRoute.value.path !== '/login') {
+        window.location.href = '/login'
+      }
+    }, 100)
     return
   }
   
   try {
+    console.log('发起API请求获取商品列表')
     const res = await getListInfo()
     console.log('API返回数据:', res.data) // 打印完整的API返回数据，用于调试
     
@@ -185,31 +245,38 @@ const fetchBooks = async () => {
       }
     } else if (res.data && res.data.code === 401) {
       // 处理未登录情况
+      console.log('API返回401未授权错误')
       ElMessage.error('登录已过期，请重新登录')
       localStorage.removeItem('token')
       localStorage.removeItem('role')
       localStorage.removeItem('username')
-      router.push('/login')
+      router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
     } else {
+      console.error('获取书籍列表API返回错误:', res.data)
       ElMessage.error(res.data?.msg || '获取书籍列表失败')
     }
   } catch (error) {
+    console.error('获取书籍列表时发生异常:', error)
     // 检查是否为401错误
     if (error.response && error.response.status === 401) {
       ElMessage.error('登录已过期，请重新登录')
       localStorage.removeItem('token')
       localStorage.removeItem('role')
       localStorage.removeItem('username')
-      router.push('/login')
+      router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
     } else {
       ElMessage.error('获取书籍列表失败')
       console.error('获取书籍列表时发生错误:', error)
     }
+  } finally {
+    loading.value = false
+    console.log('书籍列表数据加载完成')
   }
 }
 
 // 组件挂载时加载数据
 onMounted(() => {
+  console.log('ProductList组件onMounted触发')
   fetchBooks()
 })
 
@@ -332,5 +399,28 @@ onActivated(() => {
 
 .book-actions {
   margin-top: 10px;
+}
+
+/* 添加一些明显的样式区别 */
+.page-title {
+  color: #ff4400;
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  font-size: 1.5rem;
+}
+
+.loading-state .el-icon {
+  font-size: 3rem;
+  margin-bottom: 20px;
+  color: #ff4400;
 }
 </style>

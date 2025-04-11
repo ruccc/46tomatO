@@ -27,6 +27,21 @@
               </el-descriptions-item>
               <el-descriptions-item label="描述">{{ bookInfo.description }}</el-descriptions-item>
               <el-descriptions-item label="详细信息">{{ bookInfo.detail }}</el-descriptions-item>
+              
+              <!-- 新增：规格信息显示 -->
+              <el-descriptions-item label="规格信息">
+                <div v-if="bookInfo.specifications && bookInfo.specifications.length > 0">
+                  <el-tag 
+                    v-for="(spec, index) in bookInfo.specifications" 
+                    :key="index"
+                    class="spec-tag"
+                    type="info"
+                  >
+                    {{ spec.item }}: {{ spec.value }}
+                  </el-tag>
+                </div>
+                <span v-else>暂无规格信息</span>
+              </el-descriptions-item>
             </el-descriptions>
 
             <!-- 管理员操作按钮 -->
@@ -68,7 +83,8 @@ const bookInfo = ref({
   description: '',
   cover: '',
   detail: '',
-  stockpile: 0
+  stockpile: 0,
+  specifications: [] // 新增：规格信息字段
 })
 const stockInfo = ref<{ id: string; amount: number; frozen: number; productId: string; } | null>(null)
 
@@ -200,5 +216,9 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   gap: 10px;
+}
+
+.spec-tag {
+  margin-right: 5px;
 }
 </style>
