@@ -51,11 +51,14 @@ public class ProductController {
 
     @PutMapping
     public Result<String> updateProduct(@Validated @RequestBody ProductUpdateDTO dto) {
-        productService.updateProduct(dto);
-        if (dto.getId() != null) {
+        try {
+            productService.updateProduct(dto);
             return Result.success("更新成功");
-        } else {
+        } catch (ProductNotFoundException e) {
             return Result.fail(400, "商品不存在");
+        } catch (Exception e) {
+            log.error("更新商品失败", e);
+            return Result.fail(500, "更新商品失败");
         }
     }
 

@@ -111,20 +111,22 @@ public class ProductServiceImpl implements ProductService {
         product.setCover(dto.getCover());
         product.setDetail(dto.getDetail());
 
+        updateProductSpecifications(product, dto.getSpecifications());
+
+        productRepository.save(product);
+    }
+
+    private void updateProductSpecifications(Product product, Set<ProductSpecificationDTO> specDTOs) {
         product.getSpecifications().clear();
-        if (dto.getSpecifications() != null&& !dto.getSpecifications().isEmpty()) {
-            dto.getSpecifications().forEach(specDto -> {
-                if (specDto.getItem() != null && specDto.getValue() != null) {
-                    ProductSpecification spec = new ProductSpecification();
-                    spec.setItem(specDto.getItem());
-                    spec.setValue(specDto.getValue());
-                    product.addSpecification(spec);
-                }
+
+        if (specDTOs != null && !specDTOs.isEmpty()) {
+            specDTOs.forEach(specDto -> {
+                ProductSpecification spec = new ProductSpecification();
+                spec.setItem(specDto.getItem());
+                spec.setValue(specDto.getValue());
+                product.addSpecification(spec);
             });
         }
-
-        Product updatedProduct = productRepository.save(product);
-        productMapper.toVO(updatedProduct);
     }
 
     @Override
