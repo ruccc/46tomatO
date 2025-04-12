@@ -30,7 +30,7 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public AccountVO getAccountInfo(String username) throws TomatoException {
         Account account = accountRepository.findByUsername(username);
-        if (account==null) {
+        if (account == null) {
             throw TomatoException.notFound();
         }
         return account.toVO();
@@ -38,7 +38,7 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public String createAccount(AccountVO accountVO) {
-        Account account =accountRepository.findByTelephone((accountVO.getTelephone()));
+        Account account = accountRepository.findByTelephone((accountVO.getTelephone()));
         if (account != null) {
             return "用户名已存在";
         }
@@ -52,7 +52,7 @@ public class AccountServiceImpl implements AccountService {
     public String login(String username, String password) throws TomatoException {
         Account account = accountRepository.findByUsername(username);
         if (account == null) {
-            throw TomatoException.userNotFound();
+            throw TomatoException.notFound();
         }
         if (!passwordEncoder.matches(password, account.getPassword())) {
             throw TomatoException.wrongPassword();
@@ -64,20 +64,20 @@ public class AccountServiceImpl implements AccountService {
     public String updateAccount(AccountVO accountVO) {
         Account account = securityUtil.getCurrentAccount();
 
-        if(accountVO.getName()!=null){
+        if (accountVO.getName() != null) {
             account.setName(accountVO.getName());
         }
 
-        if(accountVO.getLocation()!=null){
+        if (accountVO.getLocation() != null) {
             account.setLocation(accountVO.getLocation());
         }
-        if(accountVO.getTelephone()!=null){
+        if (accountVO.getTelephone() != null) {
             account.setTelephone(accountVO.getTelephone());
         }
-        if(accountVO.getEmail()!=null){
+        if (accountVO.getEmail() != null) {
             account.setEmail(accountVO.getEmail());
         }
-        if(accountVO.getAvatar()!=null){
+        if (accountVO.getAvatar() != null) {
             account.setAvatar(accountVO.getAvatar());
         }
         if (accountVO.getPassword() != null) {

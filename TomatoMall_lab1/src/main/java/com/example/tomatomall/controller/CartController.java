@@ -1,5 +1,7 @@
 package com.example.tomatomall.controller;
 
+import com.example.tomatomall.dto.CheckoutRequestDTO;
+import com.example.tomatomall.dto.CheckoutResponseDTO;
 import com.example.tomatomall.service.CartService;
 import com.example.tomatomall.util.Result;
 import com.example.tomatomall.vo.*;
@@ -21,7 +23,11 @@ public class CartController {
         CartVO createdItem = cartService.createCartItem(cartVO);
         return Result.success(createdItem);
     }
+    @PostMapping("/checkout")
+    public Response<CheckoutResponseDTO> createCartItem(@RequestBody CheckoutRequestDTO checkoutRequestDTO) {
 
+        return Response.buildSuccess(cartService.generateOrder(checkoutRequestDTO));
+    }
     @DeleteMapping("/{cartItemId}")
     public Result<String> deleteCartItem(@PathVariable Integer cartItemId) {
         cartService.deleteCartItem(cartItemId);

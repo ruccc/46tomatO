@@ -4,29 +4,38 @@ import com.example.tomatomall.TomatoException.BusinessException;
 import com.example.tomatomall.TomatoException.CartNotFoundException;
 import com.example.tomatomall.TomatoException.ProductNotFoundException;
 import com.example.tomatomall.dto.CartResponseDTO;
+import com.example.tomatomall.dto.CheckoutRequestDTO;
+import com.example.tomatomall.dto.CheckoutResponseDTO;
 import com.example.tomatomall.po.Cart;
 import com.example.tomatomall.po.Product;
 import com.example.tomatomall.repository.CartRepository;
+import com.example.tomatomall.repository.OrdersRepository;
 import com.example.tomatomall.repository.ProductRepository;
 import com.example.tomatomall.service.CartService;
+import com.example.tomatomall.util.SecurityUtil;
 import com.example.tomatomall.vo.CartListVO;
 import com.example.tomatomall.vo.CartVO;
+import com.example.tomatomall.vo.OrderVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.security.Security;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class CartServiceImpl implements CartService {
+     SecurityUtil securityUtil;
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
-
+    private final OrdersRepository ordersRepository;
     @Autowired
-    public CartServiceImpl(CartRepository cartRepository, ProductRepository productRepository) {
+    public CartServiceImpl(CartRepository cartRepository, ProductRepository productRepository, OrdersRepository ordersRepository) {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
+        this.ordersRepository = ordersRepository;
     }
 
     @Override
@@ -72,6 +81,34 @@ public class CartServiceImpl implements CartService {
         }
         cart.setQuantity(quantity);
         cartRepository.save(cart);
+    }
+
+    @Override
+    public CheckoutResponseDTO generateOrder(CheckoutRequestDTO checkoutRequestDTO) {
+        String username = securityUtil.getCurrentAccount().getUsername();
+        int userId = securityUtil.getCurrentAccount().getId();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        String productId = null;
+        for(String s :checkoutRequestDTO.cartItemIds){
+            productId=cartRepository.findByCartItemId(s).getProductId();
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException("商品不存在"));
+            totalAmount =totalAmount.add(product.getPrice());
+        }
+        OrderVO orderVO = new OrderVO();
+        orderVO.setUserId(userId);
+        orderVO.setTotalAmount(totalAmount);
+        orderVO.setPaymentMethod("AliPay");
+        orderVO.setStatus("PENDING");
+        ordersRepository.save(orderVO.toPO());
+        CheckoutResponseDTO crDTO = new CheckoutResponseDTO();
+        crDTO.setOrderId(orderVO.getOrderId());
+        crDTO.setUsername(username);
+        crDTO.setTotalAmount(totalAmount);
+        crDTO.setPaymentMethod("ALIPAY");
+        crDTO.setCreateTime(orderVO.getCreateTime());
+        crDTO.setStatus(orderVO.getStatus());
+        return crDTO;
     }
 
     @Override

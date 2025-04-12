@@ -25,7 +25,12 @@ public class GlobalExceptionHandler {
             statusCode = "400";
         } else if (e.getMessage().equals("未登录")) {
             statusCode = "400";
+        } else if (e.getMessage().equals("订单不存在")) {
+            
+        } else if (e.getMessage().equals("生成支付表单失败")) {
+
         }
+
         return Response.buildFailure(e.getMessage(), statusCode);
     }
 
