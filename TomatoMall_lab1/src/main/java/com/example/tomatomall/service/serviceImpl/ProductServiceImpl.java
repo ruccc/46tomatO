@@ -111,19 +111,22 @@ public class ProductServiceImpl implements ProductService {
         product.setCover(dto.getCover());
         product.setDetail(dto.getDetail());
 
+        updateProductSpecifications(product, dto.getSpecifications());
+
+        productRepository.save(product);
+    }
+
+    private void updateProductSpecifications(Product product, Set<ProductSpecificationDTO> specDTOs) {
         product.getSpecifications().clear();
-        if (dto.getSpecifications() != null) {
-            dto.getSpecifications().forEach(specDto -> {
+
+        if (specDTOs != null && !specDTOs.isEmpty()) {
+            specDTOs.forEach(specDto -> {
                 ProductSpecification spec = new ProductSpecification();
                 spec.setItem(specDto.getItem());
                 spec.setValue(specDto.getValue());
-                spec.setProduct(product);
                 product.addSpecification(spec);
             });
         }
-
-        Product updatedProduct = productRepository.save(product);
-        productMapper.toVO(updatedProduct);
     }
 
     @Override
@@ -150,10 +153,11 @@ public class ProductServiceImpl implements ProductService {
         if (newFrozen < 0) {
             throw new IllegalArgumentException("调整后的冻结库存不能小于0");
         }
+        if (newFrozen > stockpile.getAmount()) {
+            throw new IllegalArgumentException("冻结库存不能超过总库存");
+        }
         stockpile.setFrozen(newFrozen);
-
-        Stockpile updated = stockpileRepository.save(stockpile);
-        stockpileMapper.toVO(updated);
+        stockpileRepository.save(stockpile);
     }
 
     @Override

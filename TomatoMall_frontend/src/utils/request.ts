@@ -37,10 +37,18 @@ service.interceptors.response.use(
     },
     error => {
         if (error.response?.status === 401) {
+            // 清除所有用户相关信息
             localStorage.removeItem('token');
-            window.location.href = '/login';
+            localStorage.removeItem('role');
+            localStorage.removeItem('username');
+            
+            // 获取当前路径，用于登录后重定向回来
+            const currentPath = window.location.pathname;
+            const queryString = currentPath !== '/login' ? `?redirect=${encodeURIComponent(currentPath)}` : '';
+            
+            // 使用window.location进行导航，确保能跨越所有页面情况
+            window.location.href = `/login${queryString}`;
         }
-        //console.log(error);
         return Promise.reject(error);
     }
 );

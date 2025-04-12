@@ -32,7 +32,15 @@ function handleLogin() {
       getUserDetail(username.value, token).then(userRes => {
         localStorage.setItem('name', userRes.data.name)
         localStorage.setItem('role', userRes.data.role)
-        router.push({path: "/main"})
+        
+        // 使用window.location.href进行页面刷新式跳转，而不是router.push
+        // 显示加载提示
+        ElMessage.info('正在进入系统，请稍候...')
+        
+        // 延迟一小段时间后跳转，确保localStorage数据保存完成
+        setTimeout(() => {
+          window.location.href = '/main'
+        }, 500)
       })
     }
     else {

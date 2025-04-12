@@ -94,6 +94,42 @@ const router = createRouter({
       }
     },
     {
+      path: '/cart',
+      name: 'cart',
+      component: () => import('../views/cart/ShoppingCart.vue'),
+      meta: { 
+        title: '购物车',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('../views/cart/Checkout.vue'),
+      meta: { 
+        title: '结算',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/pay/:orderId',
+      name: 'pay',
+      component: () => import('../views/cart/Payment.vue'),
+      meta: { 
+        title: '支付',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/orders',
+      name: 'orders',
+      component: () => import('../views/cart/Orders.vue'),
+      meta: { 
+        title: '我的订单',
+        requiresAuth: true 
+      }
+    },
+    {
       path: '/404',
       name: '404',
       component: () => import('../views/NotFound.vue'),

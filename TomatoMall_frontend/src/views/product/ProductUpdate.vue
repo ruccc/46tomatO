@@ -13,28 +13,28 @@
           <h2>更新书籍信息</h2>
         </template>
 
-        <el-form v-if="!loading" :model="bookForm" label-width="120px" :rules="rules" ref="bookFormRef">
-          <el-form-item label="书名" prop="title">
+        <el-form v-if="!loading" :model="{bookForm, specs}" label-width="120px" :rules="rules" ref="bookFormRef">
+          <el-form-item label="书名" prop="bookForm.title">
             <el-input v-model="bookForm.title" placeholder="请输入书名"></el-input>
           </el-form-item>
           
-          <el-form-item label="价格" prop="price">
+          <el-form-item label="价格" prop="bookForm.price">
             <el-input-number v-model="bookForm.price" :precision="2" :min="0"></el-input-number>
           </el-form-item>
           
-          <el-form-item label="评分" prop="rate">
+          <el-form-item label="评分" prop="bookForm.rate">
             <el-input-number v-model="bookForm.rate" :precision="1" :min="0" :max="10"></el-input-number>
           </el-form-item>
           
-          <el-form-item label="描述" prop="description">
+          <el-form-item label="描述" prop="bookForm.description">
             <el-input v-model="bookForm.description" type="textarea" placeholder="请输入书籍简短描述"></el-input>
           </el-form-item>
           
-          <el-form-item label="封面URL" prop="cover">
+          <el-form-item label="封面URL" prop="bookForm.cover">
             <el-input v-model="bookForm.cover" placeholder="请输入封面图片URL"></el-input>
           </el-form-item>
           
-          <el-form-item label="详细说明" prop="detail">
+          <el-form-item label="详细说明" prop="bookForm.detail">
             <el-input v-model="bookForm.detail" type="textarea" placeholder="请输入详细说明"></el-input>
           </el-form-item>
           
@@ -43,13 +43,13 @@
           <div v-for="(spec, index) in specs" :key="index" class="spec-item">
             <el-row :gutter="10">
               <el-col :span="10">
-                <el-form-item :label="'规格名称 ' + (index + 1)" :prop="'specifications.' + index + '.item'" :rules="[{ required: true, message: '规格名称不能为空', trigger: 'blur' }]">
-                  <el-input v-model="spec.item" placeholder="如：作者、副标题、ISBN等"></el-input>
+                <el-form-item :label="'规格名称 ' + (index + 1)" :prop="'specs.' + index + '.item'" :rules="[{ required: true, message: '规格名称不能为空', trigger: 'blur' }]">
+                  <el-input v-model="specs[index].item" placeholder="如：作者、副标题、ISBN等"></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="10">
-                <el-form-item :label="'规格内容 ' + (index + 1)" :prop="'specifications.' + index + '.value'" :rules="[{ required: true, message: '规格内容不能为空', trigger: 'blur' }]">
-                  <el-input v-model="spec.value" placeholder="请输入对应的内容"></el-input>
+                <el-form-item :label="'规格内容 ' + (index + 1)" :prop="'specs.' + index + '.value'" :rules="[{ required: true, message: '规格内容不能为空', trigger: 'blur' }]">
+                  <el-input v-model="specs[index].value" placeholder="请输入对应的内容"></el-input>
                 </el-form-item>
               </el-col>
               <el-col :span="4" class="spec-actions">
@@ -103,17 +103,19 @@ const bookForm = reactive({
   rate: 0,
   description: '',
   cover: '',
-  detail: ''
+  detail: '',
+  specifications: [] as Specification[] // 将规格直接包含在表单数据中
 })
 
-// 规格列表
+// 规格列表 - 仅用于临时操作
 const specs = ref<Specification[]>([defaultSpec()])
 
 // 表单验证规则
 const rules = {
-  title: [{ required: true, message: '请输入书名', trigger: 'blur' }],
-  price: [{ required: true, message: '请输入价格', trigger: 'blur' }],
-  rate: [{ required: true, message: '请输入评分', trigger: 'blur' }]
+  'bookForm.title': [{ required: true, message: '请输入书名', trigger: 'blur' }],
+  'bookForm.price': [{ required: true, message: '请输入价格', trigger: 'blur' }],
+  'bookForm.rate': [{ required: true, message: '请输入评分', trigger: 'blur' }],
+  // 规格项的验证规则会动态添加到表单中
 }
 
 // 获取书籍信息
@@ -136,6 +138,8 @@ const fetchBookInfo = async () => {
       // 填充规格信息
       if (book.specifications && book.specifications.length > 0) {
         specs.value = book.specifications
+      } else {
+        specs.value = [defaultSpec()]
       }
     } else {
       ElMessage.error('获取书籍信息失败')
@@ -163,13 +167,30 @@ const removeSpec = (index: number) => {
 const submitForm = async () => {
   if (!bookFormRef.value) return
   
+  // 手动验证规格信息
+  let specsValid = true
+  for (const spec of specs.value) {
+    if (!spec.item.trim() || !spec.value.trim()) {
+      specsValid = false
+      break
+    }
+  }
+  
+  if (!specsValid) {
+    ElMessage.error('请确保所有规格名称和内容都已填写')
+    return
+  }
+  
+  // 将有效的规格信息更新到表单数据中
+  bookForm.specifications = specs.value.filter(spec => spec.item.trim() && spec.value.trim())
+  
+  // 验证核心表单字段
   await bookFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
         // 准备提交数据
         const formData = {
-          ...bookForm,
-          specifications: new Set(specs.value.filter(spec => spec.item && spec.value))
+          ...bookForm
         }
         
         const res = await updateInfo(formData)
@@ -180,6 +201,7 @@ const submitForm = async () => {
           ElMessage.error(res.data.msg || '更新失败')
         }
       } catch (error) {
+        console.error('更新失败:', error)
         ElMessage.error('更新失败')
       }
     } else {
