@@ -20,17 +20,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.security.Security;
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class CartServiceImpl implements CartService {
-     SecurityUtil securityUtil;
+    @Autowired
+    SecurityUtil securityUtil;
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
     private final OrdersRepository ordersRepository;
+
     @Autowired
     public CartServiceImpl(CartRepository cartRepository, ProductRepository productRepository, OrdersRepository ordersRepository) {
         this.cartRepository = cartRepository;
@@ -64,14 +65,14 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public void deleteCartItem(Integer cartItemId) {
+    public void deleteCartItem(String cartItemId) {
         Cart cart = cartRepository.findById(cartItemId)
                 .orElseThrow(CartNotFoundException::new);
         cartRepository.delete(cart);
     }
 
     @Override
-    public void adjustCartQuantity(Integer cartItemId, int quantity) {
+    public void adjustCartQuantity(String cartItemId, int quantity) {
         Cart cart = cartRepository.findById(cartItemId)
                 .orElseThrow(CartNotFoundException::new);
         Product product = productRepository.findById(cart.getProductId())
@@ -100,6 +101,7 @@ public class CartServiceImpl implements CartService {
         orderVO.setTotalAmount(totalAmount);
         orderVO.setPaymentMethod("AliPay");
         orderVO.setStatus("PENDING");
+        orderVO.setCreateTime(LocalDateTime.now());
         ordersRepository.save(orderVO.toPO());
         CheckoutResponseDTO crDTO = new CheckoutResponseDTO();
         crDTO.setOrderId(orderVO.getOrderId());
@@ -165,12 +167,7 @@ public class CartServiceImpl implements CartService {
         return totalAmount;
     }
 
-
     private Integer getCurrentUserId() {
-        int userId = 1;
-        if (cartRepository.findById(userId).isPresent()) {
-            userId = cartRepository.findById(userId).get().getUserId();
-        }
-        return userId;
+        return securityUtil.getCurrentAccount().getId();
     }
 }

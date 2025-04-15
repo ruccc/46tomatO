@@ -23,20 +23,21 @@ public class CartController {
         CartVO createdItem = cartService.createCartItem(cartVO);
         return Result.success(createdItem);
     }
+
     @PostMapping("/checkout")
     public Response<CheckoutResponseDTO> createCartItem(@RequestBody CheckoutRequestDTO checkoutRequestDTO) {
-
         return Response.buildSuccess(cartService.generateOrder(checkoutRequestDTO));
     }
+
     @DeleteMapping("/{cartItemId}")
-    public Result<String> deleteCartItem(@PathVariable Integer cartItemId) {
+    public Result<String> deleteCartItem(@PathVariable String cartItemId) {
         cartService.deleteCartItem(cartItemId);
         return Result.success("删除成功");
     }
 
     @PatchMapping("/{cartItemId}")
     public Result<String> adjustCartQuantity(
-            @PathVariable Integer cartItemId,
+            @PathVariable String cartItemId,
             @RequestBody QuantityRequest request) {
         cartService.adjustCartQuantity(cartItemId, request.getQuantity());
         return Result.success("修改数量成功");

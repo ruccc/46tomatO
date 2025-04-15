@@ -206,7 +206,7 @@ const submitForm = async () => {
         
         // 针对不同类型的错误提供更具体的提示
         if (error.isNetworkError) {
-          // 网络连接错误的友好提示
+          // 网络连接错误的友好提示vite
           ElMessage.error(error.friendlyMessage || '网络连接错误，请检查您的网络或后端服务是否正常')
           
           // 提供可能的解决方案

@@ -18,6 +18,13 @@
         >
           清空书籍
         </el-button>
+        <!-- 添加购物车按钮 -->
+        <el-button
+          type="primary"
+          @click="$router.push('/cart')"
+        >
+          购物车
+        </el-button>
         <!-- 添加返回主页按钮 -->
         <el-button
           type="success"
