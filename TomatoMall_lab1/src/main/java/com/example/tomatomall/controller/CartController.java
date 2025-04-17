@@ -25,8 +25,8 @@ public class CartController {
     }
 
     @PostMapping("/checkout")
-    public Response<CheckoutResponseDTO> createCartItem(@RequestBody CheckoutRequestDTO checkoutRequestDTO) {
-        return Response.buildSuccess(cartService.generateOrder(checkoutRequestDTO));
+    public Result<CheckoutResponseDTO> checkout(@RequestBody CheckoutRequestDTO checkoutRequestDTO) {
+        return Result.success(cartService.generateOrder(checkoutRequestDTO));
     }
 
     @DeleteMapping("/{cartItemId}")

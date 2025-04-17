@@ -7,8 +7,11 @@ import com.example.tomatomall.dto.CartResponseDTO;
 import com.example.tomatomall.dto.CheckoutRequestDTO;
 import com.example.tomatomall.dto.CheckoutResponseDTO;
 import com.example.tomatomall.po.Cart;
+import com.example.tomatomall.po.CartsOrdersRelation;
+import com.example.tomatomall.po.Order;
 import com.example.tomatomall.po.Product;
 import com.example.tomatomall.repository.CartRepository;
+import com.example.tomatomall.repository.CORRepository;
 import com.example.tomatomall.repository.OrdersRepository;
 import com.example.tomatomall.repository.ProductRepository;
 import com.example.tomatomall.service.CartService;
@@ -31,12 +34,14 @@ public class CartServiceImpl implements CartService {
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
     private final OrdersRepository ordersRepository;
+    private final CORRepository corRepository;
 
     @Autowired
-    public CartServiceImpl(CartRepository cartRepository, ProductRepository productRepository, OrdersRepository ordersRepository) {
+    public CartServiceImpl(CartRepository cartRepository, ProductRepository productRepository, OrdersRepository ordersRepository, CORRepository corRepository) {
         this.cartRepository = cartRepository;
         this.productRepository = productRepository;
         this.ordersRepository = ordersRepository;
+        this.corRepository = corRepository;
     }
 
     @Override
@@ -86,28 +91,62 @@ public class CartServiceImpl implements CartService {
 
     @Override
     public CheckoutResponseDTO generateOrder(CheckoutRequestDTO checkoutRequestDTO) {
+        if (checkoutRequestDTO == null) {
+            throw new BusinessException("结账请求不能为空");
+        }
+
+        if (checkoutRequestDTO.cartItemIds == null || checkoutRequestDTO.cartItemIds.isEmpty()) {
+            throw new BusinessException("购物车列表不能为空");
+        }
+
         String username = securityUtil.getCurrentAccount().getUsername();
         int userId = securityUtil.getCurrentAccount().getId();
         BigDecimal totalAmount = BigDecimal.ZERO;
-        String productId = null;
-        for(String s :checkoutRequestDTO.cartItemIds){
-            productId=cartRepository.findByCartItemId(s).getProductId();
-            Product product = productRepository.findById(productId)
-                    .orElseThrow(() -> new ProductNotFoundException("商品不存在"));
-            totalAmount =totalAmount.add(product.getPrice());
-        }
+
+        // 创建订单对象
         OrderVO orderVO = new OrderVO();
         orderVO.setUserId(userId);
-        orderVO.setTotalAmount(totalAmount);
-        orderVO.setPaymentMethod("AliPay");
+        orderVO.setTotalAmount(BigDecimal.ZERO); // 先设为0，后面计算
+        orderVO.setPaymentMethod(checkoutRequestDTO.payment_method != null ? checkoutRequestDTO.payment_method : "AliPay");
         orderVO.setStatus("PENDING");
         orderVO.setCreateTime(LocalDateTime.now());
-        ordersRepository.save(orderVO.toPO());
+        
+        // 转换为PO并保存
+        Order savedOrder = ordersRepository.save(orderVO.toPO());
+        // 将生成的ID设置回OrderVO
+        orderVO.setOrderId(savedOrder.getOrderId());
+        
+        // 保存订单后再计算总金额
+        for (String cartItemId : checkoutRequestDTO.cartItemIds) {
+            Cart cart = cartRepository.findByCartItemId(cartItemId);
+            if (cart == null) {
+                throw new CartNotFoundException();
+            }
+
+            String productId = cart.getProductId();
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ProductNotFoundException("商品不存在"));
+
+            // 计算总金额时考虑购物车中的商品数量
+            totalAmount = totalAmount.add(product.getPrice().multiply(new BigDecimal(cart.getQuantity())));
+            
+            // 创建购物车项和订单的关联
+            CartsOrdersRelation relation = new CartsOrdersRelation();
+            relation.setCartItemId(cartItemId);
+            relation.setOrderId(savedOrder.getOrderId()); // 使用保存后返回的对象的ID
+            corRepository.save(relation);
+        }
+        
+        // 更新订单总金额
+        orderVO.setTotalAmount(totalAmount);
+        savedOrder.setTotalAmount(totalAmount);
+        ordersRepository.save(savedOrder);
+
         CheckoutResponseDTO crDTO = new CheckoutResponseDTO();
-        crDTO.setOrderId(orderVO.getOrderId());
+        crDTO.setOrderId(savedOrder.getOrderId());
         crDTO.setUsername(username);
         crDTO.setTotalAmount(totalAmount);
-        crDTO.setPaymentMethod("ALIPAY");
+        crDTO.setPaymentMethod(orderVO.getPaymentMethod().toUpperCase());
         crDTO.setCreateTime(orderVO.getCreateTime());
         crDTO.setStatus(orderVO.getStatus());
         return crDTO;
