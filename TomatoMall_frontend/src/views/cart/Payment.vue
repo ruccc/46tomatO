@@ -15,8 +15,20 @@
           </div>
         </template>
 
+        <!-- 支付表单显示区域 - 修改了位置，确保优先渲染 -->
+        <div v-if="paymentForm" class="payment-form-container">
+          <h3>请完成支付</h3>
+          <div v-html="paymentForm" class="payment-form"></div>
+          <el-alert
+            v-if="!paymentFormRendered"
+            title="支付表单加载中..."
+            type="info"
+            show-icon
+          />
+        </div>
+
         <!-- 支付信息 -->
-        <div v-if="!loading && orderInfo" class="payment-info">
+        <div v-if="!loading && orderInfo && !paymentForm" class="payment-info">
           <div class="payment-summary">
             <div class="info-row">
               <span class="info-label">订单号：</span>
@@ -75,14 +87,8 @@
           </div>
         </div>
 
-        <!-- 支付表单显示区域 -->
-        <div v-if="paymentForm" class="payment-form-container">
-          <h3>请完成支付</h3>
-          <div v-html="paymentForm" class="payment-form"></div>
-        </div>
-
         <!-- 订单不存在 -->
-        <div v-if="!loading && !orderInfo" class="empty-payment">
+        <div v-if="!loading && !orderInfo && !paymentForm" class="empty-payment">
           <el-empty description="订单不存在或已被取消" />
           <el-button type="primary" @click="$router.push('/cart')">返回购物车</el-button>
         </div>
@@ -92,19 +98,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getOrderDetail, initPayment } from '../../api/Book/orders'
-import type { Order, PaymentInfo } from '../../api/Book/orders' // 修改为仅类型导入
+import type { Order, PaymentInfo } from '../../api/Book/orders'
 
 const route = useRoute()
-const router = useRouter() // router变量确实被使用了，在goToOrders和其他函数中
+const router = useRouter()
 const orderId = route.params.orderId as string
 const loading = ref(true)
 const paying = ref(false)
 const orderInfo = ref<Order | null>(null)
 const paymentForm = ref<string | null>(null)
+const paymentFormRendered = ref(false)
+
+// 监听paymentForm变化，处理表单渲染
+watch(paymentForm, async (newValue) => {
+  if (newValue) {
+    // 等待DOM更新后执行
+    await nextTick()
+    
+    // 给表单一点时间渲染
+    setTimeout(() => {
+      const formElement = document.querySelector('.payment-form form')
+      if (formElement) {
+        paymentFormRendered.value = true
+        console.log('支付表单已渲染')
+        
+        // 手动提交表单，解决表单内嵌script不执行的问题
+        try {
+          (formElement as HTMLFormElement).submit()
+          console.log('表单已手动提交')
+        } catch (error) {
+          console.error('表单提交失败:', error)
+        }
+      } else {
+        console.warn('支付表单元素未找到')
+      }
+    }, 500)
+  }
+})
 
 // 格式化支付方式
 const paymentMethodLabel = computed(() => {
@@ -166,8 +200,43 @@ const pay = async () => {
     const res = await initPayment(orderId)
     if (res.data && res.data.code === 200) {
       const paymentInfo = res.data.data as PaymentInfo
-      paymentForm.value = paymentInfo.paymentForm
-      // 设置自动刷新，检查支付状态（实际项目中可以使用轮询或WebSocket）
+      console.log('支付表单内容:', paymentInfo.paymentForm)
+      
+      if (!paymentInfo.paymentForm) {
+        ElMessage.error('获取到的支付表单为空')
+        return
+      }
+      
+      // 创建一个临时div来放置支付表单
+      const div = document.createElement('div')
+      div.innerHTML = paymentInfo.paymentForm
+      document.body.appendChild(div)
+      
+      // 找到表单元素
+      const form = div.querySelector('form')
+      if (form) {
+        // 修改表单打开方式为新窗口
+        form.target = '_blank'
+        
+        // 确保所有需要的参数都已包含在表单中
+        const hiddenFields = form.querySelectorAll('input[type="hidden"]')
+        console.log(`表单中包含 ${hiddenFields.length} 个隐藏字段`)
+        
+        // 手动提交表单
+        form.submit()
+        
+        // 清理临时元素
+        setTimeout(() => {
+          document.body.removeChild(div)
+        }, 100)
+        
+        ElMessage.success('支付页面已在新窗口打开，请完成支付')
+      } else {
+        console.error('无法在返回的HTML中找到表单')
+        ElMessage.error('初始化支付失败，无法获取支付表单')
+      }
+      
+      // 设置自动刷新，检查支付状态
       setTimeout(() => {
         fetchOrderInfo()
       }, 30000) // 30秒后刷新订单状态
@@ -277,10 +346,30 @@ onMounted(() => {
 
 .payment-form {
   margin-top: 15px;
+  min-height: 200px;
 }
 
+/* 确保支付表单内部内容正确显示 */
 .payment-form :deep(form) {
-  text-align: center;
+  display: block !important;
+  text-align: center !important;
+}
+
+.payment-form :deep(iframe) {
+  width: 100% !important;
+  min-height: 300px !important;
+  border: none !important;
+}
+
+.payment-form :deep(button), 
+.payment-form :deep(input[type="submit"]) {
+  padding: 8px 20px !important;
+  background-color: #1890ff !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  margin-top: 10px !important;
 }
 
 .payment-result {
