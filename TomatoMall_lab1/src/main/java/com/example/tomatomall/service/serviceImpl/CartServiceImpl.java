@@ -45,20 +45,56 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
-    public CartVO createCartItem(CartVO cartVO) {
+    public CartResponseDTO createCartItem(CartVO cartVO) {
         Product product = productRepository.findById(cartVO.getProductId())
                 .orElseThrow(() -> new ProductNotFoundException("商品不存在"));
+        
+        // 检查库存是否足够
         if (cartVO.getQuantity() > product.getStockpile().getAmount()) {
             throw new BusinessException("库存不足");
         }
-        Cart cart = new Cart();
-        cart.setUserId(getCurrentUserId());
-        cart.setProductId(cartVO.getProductId());
-        cart.setQuantity(cartVO.getQuantity());
-        Cart savedCart = cartRepository.save(cart);
-        CartVO result = new CartVO();
+        
+        // 获取当前用户ID
+        Integer userId = getCurrentUserId();
+        
+        // 查询用户购物车中是否已经存在相同商品
+        List<Cart> userCarts = cartRepository.findByUserId(userId);
+        Cart existingCart = null;
+        boolean isExistingItem = false;
+        
+        for (Cart cart : userCarts) {
+            if (cart.getProductId().equals(cartVO.getProductId())) {
+                existingCart = cart;
+                isExistingItem = true;
+                break;
+            }
+        }
+        
+        Cart savedCart;
+        
+        // 如果已存在相同商品，则更新数量
+        if (existingCart != null) {
+            int newQuantity = existingCart.getQuantity() + cartVO.getQuantity();
+            
+            // 再次检查合并后的数量是否超过库存
+            if (newQuantity > product.getStockpile().getAmount()) {
+                throw new BusinessException("库存不足，当前购物车已有" + existingCart.getQuantity() + "件该商品");
+            }
+            
+            existingCart.setQuantity(newQuantity);
+            savedCart = cartRepository.save(existingCart);
+        } else {
+            // 如果不存在相同商品，则创建新的购物车项
+            Cart cart = new Cart();
+            cart.setUserId(userId);
+            cart.setProductId(cartVO.getProductId());
+            cart.setQuantity(cartVO.getQuantity());
+            savedCart = cartRepository.save(cart);
+        }
+        
+        // 构建返回结果
+        CartResponseDTO result = new CartResponseDTO();
         result.setCartItemId(savedCart.getCartItemId());
-        result.setUserId(savedCart.getUserId());
         result.setProductId(savedCart.getProductId());
         result.setQuantity(savedCart.getQuantity());
         result.setTitle(product.getTitle());
@@ -66,6 +102,8 @@ public class CartServiceImpl implements CartService {
         result.setDescription(product.getDescription());
         result.setCover(product.getCover());
         result.setDetail(product.getDetail());
+        result.setExistingItem(isExistingItem);
+        
         return result;
     }
 
@@ -135,6 +173,9 @@ public class CartServiceImpl implements CartService {
             relation.setCartItemId(cartItemId);
             relation.setOrderId(savedOrder.getOrderId()); // 使用保存后返回的对象的ID
             corRepository.save(relation);
+            
+            // 从购物车中删除已加入订单的商品
+            cartRepository.delete(cart);
         }
         
         // 更新订单总金额
@@ -195,6 +236,7 @@ public class CartServiceImpl implements CartService {
         dto.setDescription(vo.getDescription());
         dto.setCover(vo.getCover());
         dto.setDetail(vo.getDetail());
+        dto.setExistingItem(false); // 默认为false，因为这是从购物车列表获取的项
         return dto;
     }
 

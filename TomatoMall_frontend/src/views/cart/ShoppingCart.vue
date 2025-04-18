@@ -161,12 +161,20 @@ const removeItem = async (cartItemId: string) => {
       // 更新选中商品列表
       selectedItems.value = selectedItems.value.filter(item => item.cartItemId !== cartItemId)
     } else {
-      ElMessage.error(res.data?.msg || '删除失败')
+      // 显示具体的错误信息
+      const errorMsg = res.data?.msg || '删除失败'
+      ElMessage.error(errorMsg)
+      console.error('删除购物车商品失败:', errorMsg)
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error !== 'cancel') {
+      // 显示更详细的错误信息
+      let errorMsg = '删除失败'
+      if (error.response && error.response.data) {
+        errorMsg = error.response.data.msg || errorMsg
+      }
       console.error('删除购物车商品时发生错误:', error)
-      ElMessage.error('删除失败')
+      ElMessage.error(errorMsg)
     }
   }
 }

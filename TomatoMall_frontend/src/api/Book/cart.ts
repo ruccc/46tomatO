@@ -13,6 +13,7 @@ export interface CartItem {
     cover: string;
     detail: string;
     quantity: number;
+    isExistingItem?: boolean; // 添加isExistingItem字段，可选参数
 }
 
 // 购物车响应类型

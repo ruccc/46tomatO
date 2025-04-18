@@ -1,5 +1,6 @@
 package com.example.tomatomall.controller;
 
+import com.example.tomatomall.dto.CartResponseDTO;
 import com.example.tomatomall.dto.CheckoutRequestDTO;
 import com.example.tomatomall.dto.CheckoutResponseDTO;
 import com.example.tomatomall.service.CartService;
@@ -19,8 +20,8 @@ public class CartController {
     private final CartService cartService;
 
     @PostMapping
-    public Result<CartVO> createCartItem(@RequestBody CartVO cartVO) {
-        CartVO createdItem = cartService.createCartItem(cartVO);
+    public Result<CartResponseDTO> createCartItem(@RequestBody CartVO cartVO) {
+        CartResponseDTO createdItem = cartService.createCartItem(cartVO);
         return Result.success(createdItem);
     }
 

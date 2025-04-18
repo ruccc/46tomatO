@@ -163,7 +163,7 @@ const handleAddToCart = async () => {
       ElMessage.warning('商品库存不足，无法加入购物车')
       return
     }
-    
+
     if (quantity.value > stockInfo.value.amount) {
       ElMessage.warning(`当前可用库存仅${stockInfo.value.amount}，请减少购买数量`)
       return
@@ -171,7 +171,41 @@ const handleAddToCart = async () => {
 
     const res = await cartApi(id, quantity.value)
     if (res.data && res.data.code === 200) {
-      ElMessage.success(`成功将《${bookInfo.value.title}》添加到购物车`)
+      // 更新成功消息显示，并添加确认对话框
+      const isExisting = res.data.data.isExistingItem
+      if (isExisting) {
+        // 如果是已存在的商品，显示合并信息
+        ElMessageBox.confirm(
+          `成功将《${bookInfo.value.title}》添加到购物车！商品数量已合并更新。`,
+          '添加成功',
+          {
+            confirmButtonText: '去购物车',
+            cancelButtonText: '继续购物',
+            type: 'success',
+          }
+        ).then(() => {
+          // 用户点击"去购物车"
+          router.push('/cart')
+        }).catch(() => {
+          // 用户点击"继续购物"，不做操作
+        })
+      } else {
+        // 新增商品
+        ElMessageBox.confirm(
+          `成功将《${bookInfo.value.title}》添加到购物车！`,
+          '添加成功',
+          {
+            confirmButtonText: '去购物车',
+            cancelButtonText: '继续购物',
+            type: 'success',
+          }
+        ).then(() => {
+          // 用户点击"去购物车"
+          router.push('/cart')
+        }).catch(() => {
+          // 用户点击"继续购物"，不做操作
+        })
+      }
     } else {
       ElMessage.error(res.data?.msg || '添加到购物车失败')
     }
