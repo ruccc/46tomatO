@@ -25,6 +25,13 @@
         >
           购物车
         </el-button>
+        <!-- 添加我的订单按钮 -->
+        <el-button
+          type="info"
+          @click="$router.push('/orders')"
+        >
+          我的订单
+        </el-button>
         <!-- 添加返回主页按钮 -->
         <el-button
           type="success"

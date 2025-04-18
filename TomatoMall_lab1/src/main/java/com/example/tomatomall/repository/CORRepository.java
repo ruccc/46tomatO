@@ -8,4 +8,5 @@ import java.util.List;
 
 public interface CORRepository extends JpaRepository<CartsOrdersRelation, Integer> {
     List<CartsOrdersRelation> findByOrderId(int orderId);
+    List<CartsOrdersRelation> findByCartItemId(String cartItemId);
 }

@@ -6,6 +6,8 @@
       <div class="nav-buttons">
         <router-link to="/products" class="nav-button">书籍列表</router-link>
         <router-link to="/dashboard" class="nav-button">个人中心</router-link>
+        <!-- 添加我的订单按钮 -->
+        <el-button type="info" @click="$router.push('/orders')">我的订单</el-button>
         <el-button type="warning" @click="handleLogout">退出登录</el-button>
       </div>
     </el-header>

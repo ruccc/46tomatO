@@ -215,31 +215,22 @@ const pay = async () => {
       // 找到表单元素
       const form = div.querySelector('form')
       if (form) {
-        // 修改表单打开方式为新窗口
-        form.target = '_blank'
-        
+        // 直接在当前页面跳转，不设置target属性
         // 确保所有需要的参数都已包含在表单中
         const hiddenFields = form.querySelectorAll('input[type="hidden"]')
         console.log(`表单中包含 ${hiddenFields.length} 个隐藏字段`)
         
-        // 手动提交表单
+        // 手动提交表单，直接在当前页面跳转
         form.submit()
         
-        // 清理临时元素
-        setTimeout(() => {
-          document.body.removeChild(div)
-        }, 100)
-        
-        ElMessage.success('支付页面已在新窗口打开，请完成支付')
+        ElMessage.success('正在跳转到支付页面...')
       } else {
         console.error('无法在返回的HTML中找到表单')
         ElMessage.error('初始化支付失败，无法获取支付表单')
+        
+        // 清理临时元素
+        document.body.removeChild(div)
       }
-      
-      // 设置自动刷新，检查支付状态
-      setTimeout(() => {
-        fetchOrderInfo()
-      }, 30000) // 30秒后刷新订单状态
     } else {
       ElMessage.error(res.data?.msg || '发起支付失败')
     }

@@ -111,6 +111,16 @@ public class CartServiceImpl implements CartService {
     public void deleteCartItem(String cartItemId) {
         Cart cart = cartRepository.findById(cartItemId)
                 .orElseThrow(CartNotFoundException::new);
+        
+        // 先查找并删除关联表中的记录
+        List<CartsOrdersRelation> relations = corRepository.findByCartItemId(cartItemId);
+        if (relations != null && !relations.isEmpty()) {
+            for (CartsOrdersRelation relation : relations) {
+                corRepository.delete(relation);
+            }
+        }
+        
+        // 然后删除购物车商品
         cartRepository.delete(cart);
     }
 
@@ -154,6 +164,9 @@ public class CartServiceImpl implements CartService {
         // 将生成的ID设置回OrderVO
         orderVO.setOrderId(savedOrder.getOrderId());
         
+        // 保存要处理的购物车项目列表
+        List<Cart> cartsToDelete = new java.util.ArrayList<>();
+        
         // 保存订单后再计算总金额
         for (String cartItemId : checkoutRequestDTO.cartItemIds) {
             Cart cart = cartRepository.findByCartItemId(cartItemId);
@@ -174,14 +187,25 @@ public class CartServiceImpl implements CartService {
             relation.setOrderId(savedOrder.getOrderId()); // 使用保存后返回的对象的ID
             corRepository.save(relation);
             
-            // 从购物车中删除已加入订单的商品
-            cartRepository.delete(cart);
+            // 将购物车项目添加到待删除列表
+            cartsToDelete.add(cart);
         }
         
         // 更新订单总金额
         orderVO.setTotalAmount(totalAmount);
         savedOrder.setTotalAmount(totalAmount);
         ordersRepository.save(savedOrder);
+        
+        // 从关联表中删除所有关联记录，然后再删除购物车项目
+        for (Cart cart : cartsToDelete) {
+            List<CartsOrdersRelation> relations = corRepository.findByCartItemId(cart.getCartItemId());
+            if (relations != null && !relations.isEmpty()) {
+                for (CartsOrdersRelation relation : relations) {
+                    corRepository.delete(relation);
+                }
+            }
+            cartRepository.delete(cart);
+        }
 
         CheckoutResponseDTO crDTO = new CheckoutResponseDTO();
         crDTO.setOrderId(savedOrder.getOrderId());

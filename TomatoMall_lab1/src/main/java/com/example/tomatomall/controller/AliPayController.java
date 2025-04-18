@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -118,52 +119,118 @@ public class AliPayController {
     public void handleAlipayNotify(HttpServletRequest request, HttpServletResponse response) throws IOException, AlipayApiException {
         log.info("接收到支付宝异步通知");
         
-        // 1. 解析支付宝回调参数（通常是 application/x-www-form-urlencoded）
-        Map<String, String> params = request.getParameterMap().entrySet().stream()
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()[0]));
-        
-        log.info("支付宝通知参数: {}", params);
-
-        // 2. 验证支付宝签名（防止伪造请求）- 使用配置文件中的公钥
-        boolean signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey, charset, signType);
-        
-        if (!signVerified) {
-            log.error("支付宝签名验证失败");
-            response.getWriter().print("fail"); // 签名验证失败，返回 fail
-            return;
-        }
-
-        // 3. 处理业务逻辑（更新订单、减库存等）
-        String tradeStatus = params.get("trade_status");
-        if ("TRADE_SUCCESS".equals(tradeStatus)) {
-            String orderId = params.get("out_trade_no"); // 订单号
-            String alipayTradeNo = params.get("trade_no"); // 支付宝交易号
-            String totalAmount = params.get("total_amount"); // 支付金额
-            String paymentTime = params.get("gmt_payment"); // 支付完成时间
+        try {
+            // 使用更稳健的方法获取所有请求参数
+            Map<String, String> params = new java.util.HashMap<>();
+            Map<String, String[]> requestParams = request.getParameterMap();
             
-            log.info("订单 {} 支付成功，支付宝交易号: {}, 支付金额: {}, 支付时间: {}", 
-                    orderId, alipayTradeNo, totalAmount, paymentTime);
+            for (String name : requestParams.keySet()) {
+                String[] values = requestParams.get(name);
+                if (values != null && values.length > 0) {
+                    StringBuilder valueStr = new StringBuilder();
+                    for (int i = 0; i < values.length; i++) {
+                        if (i == values.length - 1) {
+                            valueStr.append(values[i]);
+                        } else {
+                            valueStr.append(values[i]).append(",");
+                        }
+                    }
+                    params.put(name, valueStr.toString());
+                }
+            }
             
+            log.info("支付宝通知参数(从参数Map): {}", params);
+            
+            // 如果参数为空，尝试从请求体中读取
+            if (params.isEmpty()) {
+                log.error("支付宝回调参数为空，请求内容类型: {}, 请求方法: {}", request.getContentType(), request.getMethod());
+                
+                // 直接从输入流读取内容
+                StringBuilder sb = new StringBuilder();
+                try (BufferedReader reader = request.getReader()) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        sb.append(line);
+                    }
+                }
+                
+                String requestBody = sb.toString();
+                log.info("支付宝回调请求体内容: {}", requestBody);
+                
+                if (!requestBody.isEmpty()) {
+                    // 解析请求体中的表单数据
+                    String[] pairs = requestBody.split("&");
+                    for (String pair : pairs) {
+                        int idx = pair.indexOf("=");
+                        if (idx > 0) {
+                            String key = pair.substring(0, idx);
+                            String value = idx < pair.length() - 1 ? 
+                                         java.net.URLDecoder.decode(pair.substring(idx + 1), "UTF-8") : "";
+                            params.put(key, value);
+                        }
+                    }
+                    
+                    log.info("从请求体解析的参数: {}", params);
+                }
+                
+                // 如果仍然为空，返回失败
+                if (params.isEmpty()) {
+                    response.getWriter().print("fail");
+                    return;
+                }
+            }
+
+            // 2. 验证支付宝签名（防止伪造请求）- 使用配置文件中的公钥
+            boolean signVerified = false;
             try {
-                // 更新订单状态（注意幂等性，防止重复处理）
-                orderService.updateOrderStatus(orderId);
-                
-                // 扣减库存
-                orderService.reduceStock(orderId);
-                
-                log.info("订单处理完成: {}", orderId);
+                signVerified = AlipaySignature.rsaCheckV1(params, alipayPublicKey, charset, signType);
             } catch (Exception e) {
-                log.error("处理订单时出错: {}", orderId, e);
-                response.getWriter().print("fail"); // 处理失败，支付宝会重试
+                log.error("验证签名时发生异常", e);
+                response.getWriter().print("fail");
                 return;
             }
-        } else {
-            log.info("非成功交易状态: {}, 订单号: {}", tradeStatus, params.get("out_trade_no"));
-        }
+            
+            if (!signVerified) {
+                log.error("支付宝签名验证失败");
+                response.getWriter().print("fail"); // 签名验证失败，返回 fail
+                return;
+            }
 
-        // 4. 必须返回纯文本的 "success"（支付宝要求）
-        response.getWriter().print("success");
-        log.info("支付宝异步通知处理完成");
+            // 3. 处理业务逻辑（更新订单、减库存等）
+            String tradeStatus = params.get("trade_status");
+            if ("TRADE_SUCCESS".equals(tradeStatus)) {
+                String orderId = params.get("out_trade_no"); // 订单号
+                String alipayTradeNo = params.get("trade_no"); // 支付宝交易号
+                String totalAmount = params.get("total_amount"); // 支付金额
+                String paymentTime = params.get("gmt_payment"); // 支付完成时间
+                
+                log.info("订单 {} 支付成功，支付宝交易号: {}, 支付金额: {}, 支付时间: {}", 
+                        orderId, alipayTradeNo, totalAmount, paymentTime);
+                
+                try {
+                    // 更新订单状态（注意幂等性，防止重复处理）
+                    orderService.updateOrderStatus(orderId);
+                    
+                    // 扣减库存
+                    orderService.reduceStock(orderId);
+                    
+                    log.info("订单处理完成: {}", orderId);
+                } catch (Exception e) {
+                    log.error("处理订单时出错: {}", orderId, e);
+                    response.getWriter().print("fail"); // 处理失败，支付宝会重试
+                    return;
+                }
+            } else {
+                log.info("非成功交易状态: {}, 订单号: {}", tradeStatus, params.get("out_trade_no"));
+            }
+
+            // 4. 必须返回纯文本的 "success"（支付宝要求）
+            response.getWriter().print("success");
+            log.info("支付宝异步通知处理完成");
+        } catch (Exception e) {
+            log.error("处理支付宝回调异常", e);
+            response.getWriter().print("fail");
+        }
     }
 
     /**
