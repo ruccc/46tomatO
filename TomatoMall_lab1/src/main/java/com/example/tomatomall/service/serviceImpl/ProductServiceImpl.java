@@ -89,7 +89,7 @@ public class ProductServiceImpl implements ProductService {
         product.setSpecifications(specs);
 
         Stockpile stockpile = new Stockpile();
-        stockpile.setAmount(dto.getStockAmount() != null ? dto.getStockAmount() : 0);
+        stockpile.setAmount( 0);
         stockpile.setFrozen(0);
         stockpile.setProduct(product);
         product.setStockpile(stockpile);
@@ -142,7 +142,6 @@ public class ProductServiceImpl implements ProductService {
     public void adjustStockpile(String productId, StockpileAdjustDTO dto) {
         Stockpile stockpile = stockpileRepository.findByProductId(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
-
         int newAmount = stockpile.getAmount() + dto.getAmount();
         if (newAmount < 0) {
             throw new IllegalArgumentException("调整后的库存不能小于0");
