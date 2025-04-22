@@ -130,6 +130,38 @@ const router = createRouter({
       }
     },
     {
+      path: '/advertisement',
+      component: () => import('../views/Main.vue'),
+      children: [
+        {
+          path: 'list',
+          component: () => import('../views/advertisement/AdvertisementList.vue'),
+          meta: { 
+            title: '广告列表',
+            requiresAuth: true 
+          }
+        },
+        {
+          path: 'create',
+          component: () => import('../views/advertisement/CreateAdvertisement.vue'),
+          meta: { 
+            title: '新建广告',
+            requiresAuth: true,
+            permission: ['admin']
+          }
+        },
+        {
+          path: 'edit/:id',
+          component: () => import('../views/advertisement/EditAdvertisement.vue'),
+          meta: { 
+            title: '编辑广告',
+            requiresAuth: true,
+            permission: ['admin']
+          }
+        }
+      ]
+    },
+    {
       path: '/404',
       name: '404',
       component: () => import('../views/NotFound.vue'),
