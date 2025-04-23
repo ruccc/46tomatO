@@ -1,6 +1,6 @@
 <template>
   <div class="edit-advertisement">
-    <el-card>
+    <el-card v-loading="loading">
       <template #header>
         <div class="card-header">
           <span>编辑广告</span>
@@ -24,7 +24,7 @@
           <el-input v-model="form.productId" placeholder="请输入关联的商品ID" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="handleSubmit">保存</el-button>
+          <el-button type="primary" @click="handleSubmit" :loading="submitting">保存</el-button>
           <el-button @click="handleCancel">取消</el-button>
         </el-form-item>
       </el-form>
@@ -51,6 +51,8 @@ const route = useRoute()
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const previewVisible = ref(false)
+const loading = ref(false)
+const submitting = ref(false)
 
 const form = reactive<Advertisement>({
   title: '',
@@ -69,8 +71,7 @@ const rules = reactive<FormRules>({
     { max: 500, message: '内容长度不能超过500个字符', trigger: 'blur' }
   ],
   imgUrl: [
-    { required: true, message: '请输入图片链接', trigger: 'blur' },
-    { type: 'url', message: '请输入有效的URL地址', trigger: 'blur' }
+    { required: true, message: '请输入图片链接', trigger: 'blur' }
   ],
   productId: [
     { required: true, message: '请输入商品ID', trigger: 'blur' }
@@ -79,13 +80,29 @@ const rules = reactive<FormRules>({
 
 const handleSubmit = async () => {
   if (!formRef.value) return
-  await formRef.value.validate()
   try {
-    await updateAdvertisement({ ...form, id: route.params.id as string })
-    ElMessage.success('更新成功')
-    router.push('/advertisement/list')
-  } catch (error) {
-    ElMessage.error('更新失败')
+    await formRef.value.validate()
+    submitting.value = true
+    console.log('提交的广告数据:', { ...form, id: route.params.id })
+    const response = await updateAdvertisement({ ...form, id: route.params.id as string })
+    console.log('更新广告响应:', response)
+    if (response.data && response.data.code === 200) {
+      ElMessage.success('更新成功')
+      router.push('/advertisement/list')
+    } else {
+      ElMessage.error(response.data?.msg || '更新失败')
+    }
+  } catch (error: any) {
+    console.error('更新广告失败:', error)
+    if (error.response?.status === 404) {
+      ElMessage.error('广告不存在')
+    } else if (error.response?.status === 400) {
+      ElMessage.error(error.response.data?.msg || '请求参数错误')
+    } else {
+      ElMessage.error('更新失败，请稍后重试')
+    }
+  } finally {
+    submitting.value = false
   }
 }
 
@@ -98,18 +115,33 @@ const handlePreview = () => {
 }
 
 onMounted(async () => {
+  loading.value = true
   try {
-    const { data } = await getAdvertisements()
-    const currentAd = data.find((ad: Advertisement) => ad.id === route.params.id)
-    if (currentAd) {
-      Object.assign(form, currentAd)
+    const response = await getAdvertisements()
+    console.log('获取广告列表响应:', response)
+    if (response.data && response.data.code === 200) {
+      const currentAd = response.data.data.find((ad: Advertisement) => ad.id === route.params.id)
+      if (currentAd) {
+        Object.assign(form, currentAd)
+      } else {
+        ElMessage.error('广告不存在')
+        router.back()
+      }
     } else {
-      ElMessage.error('广告不存在')
+      ElMessage.error(response.data?.msg || '获取广告信息失败')
       router.back()
     }
-  } catch (error) {
-    ElMessage.error('获取广告信息失败')
-    router.back()
+  } catch (error: any) {
+    console.error('获取广告信息失败:', error)
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      router.push('/login')
+    } else {
+      ElMessage.error('获取广告信息失败')
+      router.back()
+    }
+  } finally {
+    loading.value = false
   }
 })
 </script>
