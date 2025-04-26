@@ -22,15 +22,7 @@
             <el-image :src="row.imgUrl" style="width: 100px" fit="contain" />
           </template>
         </el-table-column>
-        <el-table-column label="操作">
-          <template #default="{ row }">
-            <el-button @click="handleViewProduct(row.productId)">查看商品</el-button>
-            <template v-if="isAdmin">
-              <el-button type="primary" @click="handleEdit(row)">编辑</el-button>
-              <el-button type="danger" @click="handleDelete(row)">删除</el-button>
-            </template>
-          </template>
-        </el-table-column>
+
       </el-table>
     </el-card>
   </div>
