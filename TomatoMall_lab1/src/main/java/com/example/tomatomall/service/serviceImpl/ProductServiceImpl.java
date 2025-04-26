@@ -21,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.math.BigDecimal;
-import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -77,7 +77,7 @@ public class ProductServiceImpl implements ProductService {
         product.setCover(dto.getCover());
         product.setDetail(dto.getDetail());
 
-        List<ProductSpecification> specs = dto.getSpecifications().stream()
+        Set<ProductSpecification> specs = dto.getSpecifications().stream()
                 .map(specDto -> {
                     ProductSpecification spec = new ProductSpecification();
                     spec.setItem(specDto.getItem());
@@ -85,11 +85,11 @@ public class ProductServiceImpl implements ProductService {
                     spec.setProduct(product);
                     return spec;
                 })
-                .collect(Collectors.toList());
+                .collect(Collectors.toSet());
         product.setSpecifications(specs);
 
         Stockpile stockpile = new Stockpile();
-        stockpile.setAmount(dto.getStockAmount() != null ? dto.getStockAmount() : 0);
+        stockpile.setAmount( 0);
         stockpile.setFrozen(0);
         stockpile.setProduct(product);
         product.setStockpile(stockpile);
@@ -100,7 +100,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductVO updateProduct(ProductUpdateDTO dto) {
+    public void updateProduct(ProductUpdateDTO dto) {
         Product product = productRepository.findById(dto.getId())
                 .orElseThrow(() -> new ProductNotFoundException(dto.getId()));
 
@@ -111,19 +111,22 @@ public class ProductServiceImpl implements ProductService {
         product.setCover(dto.getCover());
         product.setDetail(dto.getDetail());
 
+        updateProductSpecifications(product, dto.getSpecifications());
+
+        productRepository.save(product);
+    }
+
+    private void updateProductSpecifications(Product product, Set<ProductSpecificationDTO> specDTOs) {
         product.getSpecifications().clear();
-        if (dto.getSpecifications() != null) {
-            dto.getSpecifications().forEach(specDto -> {
+
+        if (specDTOs != null && !specDTOs.isEmpty()) {
+            specDTOs.forEach(specDto -> {
                 ProductSpecification spec = new ProductSpecification();
                 spec.setItem(specDto.getItem());
                 spec.setValue(specDto.getValue());
-                spec.setProduct(product);
                 product.addSpecification(spec);
             });
         }
-
-        Product updatedProduct = productRepository.save(product);
-        return productMapper.toVO(updatedProduct);
     }
 
     @Override
@@ -136,10 +139,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public StockpileVO adjustStockpile(String productId, StockpileAdjustDTO dto) {
+    public void adjustStockpile(String productId, StockpileAdjustDTO dto) {
         Stockpile stockpile = stockpileRepository.findByProductId(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
-
         int newAmount = stockpile.getAmount() + dto.getAmount();
         if (newAmount < 0) {
             throw new IllegalArgumentException("调整后的库存不能小于0");
@@ -150,10 +152,11 @@ public class ProductServiceImpl implements ProductService {
         if (newFrozen < 0) {
             throw new IllegalArgumentException("调整后的冻结库存不能小于0");
         }
+        if (newFrozen > stockpile.getAmount()) {
+            throw new IllegalArgumentException("冻结库存不能超过总库存");
+        }
         stockpile.setFrozen(newFrozen);
-
-        Stockpile updated = stockpileRepository.save(stockpile);
-        return stockpileMapper.toVO(updated);
+        stockpileRepository.save(stockpile);
     }
 
     @Override

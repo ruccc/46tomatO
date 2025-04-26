@@ -1,12 +1,9 @@
 package com.example.tomatomall.dto;
 
-import lombok.Getter;
-import lombok.Setter;
-
+import lombok.Data;
 import java.math.BigDecimal;
 
-@Getter
-@Setter
+@Data
 public class CartResponseDTO {
     private String cartItemId;
     private String productId;
@@ -15,5 +12,6 @@ public class CartResponseDTO {
     private String description;
     private String cover;
     private String detail;
-    private Integer quantity;
+    private int quantity;
+    private boolean isExistingItem;
 }

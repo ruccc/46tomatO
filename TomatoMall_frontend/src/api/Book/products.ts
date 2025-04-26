@@ -26,7 +26,8 @@ export type AddInfo = {
     description?: string,
     cover?: string,
     detail?: string,
-    specifications?: Set<Specification>;
+    specifications?: Specification[],
+    stockAmount?: number
 }
 
 //获取商品列表

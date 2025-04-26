@@ -94,6 +94,74 @@ const router = createRouter({
       }
     },
     {
+      path: '/cart',
+      name: 'cart',
+      component: () => import('../views/cart/ShoppingCart.vue'),
+      meta: { 
+        title: '购物车',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('../views/cart/Checkout.vue'),
+      meta: { 
+        title: '结算',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/pay/:orderId',
+      name: 'pay',
+      component: () => import('../views/cart/Payment.vue'),
+      meta: { 
+        title: '支付',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/orders',
+      name: 'orders',
+      component: () => import('../views/cart/Orders.vue'),
+      meta: { 
+        title: '我的订单',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/advertisement',
+      component: () => import('../views/Main.vue'),
+      children: [
+        {
+          path: 'list',
+          component: () => import('../views/advertisement/AdvertisementList.vue'),
+          meta: { 
+            title: '广告列表',
+            requiresAuth: true 
+          }
+        },
+        {
+          path: 'create',
+          component: () => import('../views/advertisement/CreateAdvertisement.vue'),
+          meta: { 
+            title: '新建广告',
+            requiresAuth: true,
+            permission: ['admin']
+          }
+        },
+        {
+          path: 'edit/:id',
+          component: () => import('../views/advertisement/EditAdvertisement.vue'),
+          meta: { 
+            title: '编辑广告',
+            requiresAuth: true,
+            permission: ['admin']
+          }
+        }
+      ]
+    },
+    {
       path: '/404',
       name: '404',
       component: () => import('../views/NotFound.vue'),

@@ -1,5 +1,8 @@
 package com.example.tomatomall.controller;
 
+import com.example.tomatomall.dto.CartResponseDTO;
+import com.example.tomatomall.dto.CheckoutRequestDTO;
+import com.example.tomatomall.dto.CheckoutResponseDTO;
 import com.example.tomatomall.service.CartService;
 import com.example.tomatomall.util.Result;
 import com.example.tomatomall.vo.*;
@@ -17,20 +20,25 @@ public class CartController {
     private final CartService cartService;
 
     @PostMapping
-    public Result<CartVO> createCartItem(@RequestBody CartVO cartVO) {
-        CartVO createdItem = cartService.createCartItem(cartVO);
+    public Result<CartResponseDTO> createCartItem(@RequestBody CartVO cartVO) {
+        CartResponseDTO createdItem = cartService.createCartItem(cartVO);
         return Result.success(createdItem);
     }
 
+    @PostMapping("/checkout")
+    public Result<CheckoutResponseDTO> checkout(@RequestBody CheckoutRequestDTO checkoutRequestDTO) {
+        return Result.success(cartService.generateOrder(checkoutRequestDTO));
+    }
+
     @DeleteMapping("/{cartItemId}")
-    public Result<String> deleteCartItem(@PathVariable Integer cartItemId) {
+    public Result<String> deleteCartItem(@PathVariable String cartItemId) {
         cartService.deleteCartItem(cartItemId);
         return Result.success("删除成功");
     }
 
     @PatchMapping("/{cartItemId}")
     public Result<String> adjustCartQuantity(
-            @PathVariable Integer cartItemId,
+            @PathVariable String cartItemId,
             @RequestBody QuantityRequest request) {
         cartService.adjustCartQuantity(cartItemId, request.getQuantity());
         return Result.success("修改数量成功");

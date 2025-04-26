@@ -146,6 +146,21 @@ const submitForm = async () => {
     if (valid) {
       loading.value = true
       try {
+        // 参数验证
+        if (stockForm.amount < 0) {
+          ElMessage.error('调整数量不能为负数')
+          return
+        }
+        
+        // 如果是减少库存，确保库存充足
+        if (stockForm.adjustType === 'reduce' && stockInfo.value) {
+          if (stockForm.amount > stockInfo.value.amount) {
+            ElMessage.error(`当前可用库存仅${stockInfo.value.amount}，无法减少${stockForm.amount}`)
+            loading.value = false
+            return
+          }
+        }
+
         // 根据调整方式计算实际的调整值
         let adjustedAmount = stockForm.amount
         
@@ -158,21 +173,67 @@ const submitForm = async () => {
           if (stockInfo.value) {
             // 计算差值
             adjustedAmount = stockForm.amount - stockInfo.value.amount
+            // 如果差值为0，提示用户
+            if (adjustedAmount === 0) {
+              ElMessage.info('库存无变化，无需调整')
+              loading.value = false
+              return
+            }
           }
         }
         
+        console.log('正在调整库存，商品ID:', id, '调整量:', adjustedAmount)
+        
         const res = await adjustStockpile(id, adjustedAmount)
+        console.log('库存调整响应结果:', res.data)
+        
         if (res.data && res.data.code === 200) {
-          ElMessage.success('库存调整成功')
+          ElMessage.success(`库存调整成功: ${stockForm.adjustType === 'add' ? '增加' : (stockForm.adjustType === 'reduce' ? '减少' : '设置为')} ${Math.abs(adjustedAmount)}`)
           // 重新获取库存信息
           await fetchStockInfo()
           // 重置表单
           stockForm.amount = 0
         } else {
-          ElMessage.error(res.data.msg || '库存调整失败')
+          // 提供更具体的错误信息
+          if (res.data && res.data.msg) {
+            ElMessage.error(`库存调整失败: ${res.data.msg}`)
+          } else {
+            ElMessage.error('库存调整失败，请检查服务器连接')
+          }
         }
       } catch (error) {
-        ElMessage.error('库存调整失败')
+        console.error('调整库存时发生错误:', error)
+        
+        // 针对不同类型的错误提供更具体的提示
+        if (error.isNetworkError) {
+          // 网络连接错误的友好提示vite
+          ElMessage.error(error.friendlyMessage || '网络连接错误，请检查您的网络或后端服务是否正常')
+          
+          // 提供可能的解决方案
+          ElMessage({
+            type: 'info',
+            message: '解决方案: 1. 确认后端服务器是否运行 2. 检查网络连接 3. 检查防火墙设置',
+            duration: 10000
+          })
+        } else if (error.response) {
+          // 服务器返回错误
+          const status = error.response.status
+          const errMsg = error.response.data?.msg
+          
+          if (status === 401) {
+            ElMessage.error('登录已过期，请重新登录')
+            router.push('/login')
+          } else if (status === 400) {
+            ElMessage.error(`请求参数错误: ${errMsg || '参数格式不正确'}`)
+          } else if (status === 500) {
+            ElMessage.error(`服务器内部错误: ${errMsg || '服务器处理请求时出现异常'}`)
+          } else {
+            ElMessage.error(`库存调整失败: ${errMsg || error.message || '未知错误'}`)
+          }
+        } else {
+          // 其他未知错误
+          ElMessage.error(`操作失败: ${error.message || '未知错误'}`)
+        }
       } finally {
         loading.value = false
       }

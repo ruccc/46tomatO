@@ -16,9 +16,9 @@ public interface ProductService {
     Page<ProductVO> getProducts(Pageable pageable);
     ProductDetailVO getProductDetail(String id);
     ProductVO createProduct(ProductCreateDTO dto);
-    ProductVO updateProduct(ProductUpdateDTO dto);
+    void updateProduct(ProductUpdateDTO dto);
     void deleteProduct(String id);
-    StockpileVO adjustStockpile(String productId, StockpileAdjustDTO dto);
+    void adjustStockpile(String productId, StockpileAdjustDTO dto);
     StockpileVO getStockpile(String productId);
 
     @Transactional(readOnly = true)

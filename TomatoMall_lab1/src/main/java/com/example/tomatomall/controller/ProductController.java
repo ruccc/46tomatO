@@ -1,5 +1,6 @@
 package com.example.tomatomall.controller;
 
+import com.example.tomatomall.TomatoException.ProductNotFoundException;
 import com.example.tomatomall.dto.*;
 import com.example.tomatomall.service.ProductService;
 import com.example.tomatomall.util.Result;
@@ -50,11 +51,14 @@ public class ProductController {
 
     @PutMapping
     public Result<String> updateProduct(@Validated @RequestBody ProductUpdateDTO dto) {
-        productService.updateProduct(dto);
-        if (dto.getId() != null) {
+        try {
+            productService.updateProduct(dto);
             return Result.success("更新成功");
-        } else {
+        } catch (ProductNotFoundException e) {
             return Result.fail(400, "商品不存在");
+        } catch (Exception e) {
+            log.error("更新商品失败", e);
+            return Result.fail(500, "更新商品失败");
         }
     }
 
@@ -73,11 +77,13 @@ public class ProductController {
     public Result<String> adjustStockpile(
             @PathVariable String productId,
             @Validated @RequestBody StockpileAdjustDTO dto) {
-        productService.adjustStockpile(productId, dto);
-        if (dto.getAmount()>=0) {
+        try {
+            productService.adjustStockpile(productId, dto);
             return Result.success("调整库存成功");
-        }else {
-            return Result.fail(400,"商品不存在");
+        } catch (ProductNotFoundException e) {
+            return Result.fail(400, "商品不存在");
+        } catch (IllegalArgumentException e) {
+            return Result.fail(400, e.getMessage());
         }
     }
 

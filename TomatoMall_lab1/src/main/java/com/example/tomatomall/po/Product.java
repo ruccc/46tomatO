@@ -2,11 +2,11 @@ package com.example.tomatomall.po;
 
 import lombok.*;
 import org.hibernate.annotations.GenericGenerator;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import javax.persistence.*;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @Entity
 @Table(name = "products")
@@ -28,9 +28,11 @@ public class Product {
     private String detail;
 
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ProductSpecification> specifications = new ArrayList<>();
+    @JsonManagedReference
+    private Set<ProductSpecification> specifications = new HashSet<>();
 
     @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private Stockpile stockpile;
 
     public void addSpecification(ProductSpecification spec) {
