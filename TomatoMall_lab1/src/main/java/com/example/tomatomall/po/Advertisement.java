@@ -1,5 +1,6 @@
 package com.example.tomatomall.po;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import javax.persistence.*;
 @Setter
 @NoArgsConstructor
 @Entity
+@Data
 @Table(name = "advertisements")
 public class Advertisement {
     @Id

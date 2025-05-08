@@ -1,5 +1,6 @@
 package com.example.tomatomall.po;
 
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -12,6 +13,7 @@ import org.hibernate.annotations.GenericGenerator;
 @Table(name = "carts")
 @Setter
 @Getter
+@Data
 public class Cart {
     @Id
     @GeneratedValue(generator = "uuid2")

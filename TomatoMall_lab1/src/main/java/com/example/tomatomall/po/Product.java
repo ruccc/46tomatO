@@ -1,6 +1,7 @@
 package com.example.tomatomall.po;
 
 import lombok.*;
+import org.hibernate.annotations.DynamicInsert;
 import org.hibernate.annotations.GenericGenerator;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 
@@ -12,6 +13,7 @@ import java.util.*;
 @Table(name = "products")
 @Getter
 @Setter
+@Data
 @NoArgsConstructor
 public class Product {
     @Id

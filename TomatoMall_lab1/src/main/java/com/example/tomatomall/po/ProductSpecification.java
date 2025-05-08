@@ -1,6 +1,8 @@
 package com.example.tomatomall.po;
 
 import javax.persistence.*;
+
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,6 +13,7 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 @Table(name = "product_specifications")
 @Getter
 @Setter
+@Data
 @NoArgsConstructor
 public class ProductSpecification {
     @Id

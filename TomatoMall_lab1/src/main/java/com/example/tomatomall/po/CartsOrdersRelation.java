@@ -1,4 +1,5 @@
 package com.example.tomatomall.po;
+import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -11,6 +12,7 @@ import javax.persistence.Column;
 @Table(name = "carts_orders_relation")
 @Setter
 @Getter
+@Data
 public class CartsOrdersRelation {
 
     @Id

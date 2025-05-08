@@ -11,6 +11,7 @@ import javax.persistence.Entity;
 @Setter
 @NoArgsConstructor
 @Entity
+@Data
 public class Account {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
