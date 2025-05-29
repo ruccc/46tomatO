@@ -30,47 +30,47 @@ public class CustomerServiceServiceImpl implements CustomerServiceService {
     private final CustomerServiceMessageRepository messageRepository;
     private final AccountRepository accountRepository;
 
-    @Override
-    @Transactional
-    public CustomerServiceSessionVO createCustomerServiceSession(Integer customerId, String questionType, String content, String orderId) {
-        // 检查用户是否已有未解决的会话
-        List<Integer> activeStatuses = new ArrayList<>(); activeStatuses.add(0);activeStatuses.add(1);// 未处理和处理中
-        if (sessionRepository.findByCustomerIdAndStatusIn(customerId, activeStatuses).isPresent()) {
-            throw new BusinessException("您已有未解决的客服会话");
-        }
-
-        // 分配客服 (简单实现：随机分配)
-        List<Account> services = accountRepository.findByRole("service");
-        if (services.isEmpty()) {
-            throw new BusinessException("暂无可用客服");
-        }
-        Account service = services.get((int)(Math.random() * services.size()));
-
-        // 创建会话
-        CustomerServiceSession session = new CustomerServiceSession();
-        session.setSessionId(generateSessionId());
-        session.setCustomerId(customerId);
-        session.setServiceId(service.getId());
-        session.setQuestionType(questionType);
-        session.setOrderId(orderId);
-        session.setStatus(0); // 未处理
-        String now = LocalDateTime.now().toString();
-        session.setCreateTime(now);
-        session.setUpdateTime(now);
-
-        CustomerServiceSession savedSession = sessionRepository.save(session);
-
-        // 发送第一条消息
-        CustomerServiceMessage message = new CustomerServiceMessage();
-        message.setSessionId(savedSession.getSessionId());
-        message.setSenderType("customer");
-        message.setContent(content);
-        message.setContentType("text");
-        message.setCreateTime(now);
-        messageRepository.save(message);
-
-        return convertToVO(savedSession);
-    }
+//    @Override
+//    @Transactional
+//    public CustomerServiceSessionVO createCustomerServiceSession(Integer customerId, String questionType, String content, String orderId) {
+//        // 检查用户是否已有未解决的会话
+//        List<Integer> activeStatuses = new ArrayList<>(); activeStatuses.add(0);activeStatuses.add(1);// 未处理和处理中
+//        if (sessionRepository.findByCustomerIdAndStatusIn(customerId, activeStatuses).isPresent()) {
+//            throw new BusinessException("您已有未解决的客服会话");
+//        }
+//
+//        // 分配客服 (简单实现：随机分配)
+//        List<Account> services = accountRepository.findByRole("service");
+//        if (services.isEmpty()) {
+//            throw new BusinessException("暂无可用客服");
+//        }
+//        Account service = services.get((int)(Math.random() * services.size()));
+//
+//        // 创建会话
+//        CustomerServiceSession session = new CustomerServiceSession();
+//        session.setSessionId(generateSessionId());
+//        session.setCustomerId(customerId);
+//        session.setServiceId(service.getId());
+//        session.setQuestionType(questionType);
+//        session.setOrderId(orderId);
+//        session.setStatus(0); // 未处理
+//        String now = LocalDateTime.now().toString();
+//        session.setCreateTime(now);
+//        session.setUpdateTime(now);
+//
+//        CustomerServiceSession savedSession = sessionRepository.save(session);
+//
+//        // 发送第一条消息
+//        CustomerServiceMessage message = new CustomerServiceMessage();
+//        message.setSessionId(savedSession.getSessionId());
+//        message.setSenderType("customer");
+//        message.setContent(content);
+//        message.setContentType("text");
+//        message.setCreateTime(now);
+//        messageRepository.save(message);
+//
+//        return convertToVO(savedSession);
+//    }
 
     @Override
     public List<CustomerServiceSessionVO> getCustomerServiceSessions(Integer userId, int page, int size) {

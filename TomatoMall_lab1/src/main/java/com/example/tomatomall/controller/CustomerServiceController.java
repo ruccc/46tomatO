@@ -18,23 +18,23 @@ public class CustomerServiceController {
 
     private final CustomerServiceService customerServiceService;
 
-    @PostMapping("/sessions")
-    public Result<CustomerServiceSessionVO> createSession(
-            @RequestAttribute Integer userId,
-            @RequestParam String questionType,
-            @RequestParam String content,
-            @RequestParam(required = false) String orderId) {
-        try {
-            CustomerServiceSessionVO session = customerServiceService.createCustomerServiceSession(
-                    userId, questionType, content, orderId);
-            return Result.success(session);
-        } catch (BusinessException e) {
-            return Result.fail(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("创建客服会话失败", e);
-            return Result.fail(500, "创建客服会话失败");
-        }
-    }
+//    @PostMapping("/sessions")
+//    public Result<CustomerServiceSessionVO> createSession(
+//            @RequestAttribute Integer userId,
+//            @RequestParam String questionType,
+//            @RequestParam String content,
+//            @RequestParam(required = false) String orderId) {
+//        try {
+//            CustomerServiceSessionVO session = customerServiceService.createCustomerServiceSession(
+//                    userId, questionType, content, orderId);
+//            return Result.success(session);
+//        } catch (BusinessException e) {
+//            return Result.fail(400, e.getMessage());
+//        } catch (Exception e) {
+//            log.error("创建客服会话失败", e);
+//            return Result.fail(500, "创建客服会话失败");
+//        }
+//    }
 
     @GetMapping("/sessions")
     public Result<List<CustomerServiceSessionVO>> getSessions(

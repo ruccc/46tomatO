@@ -1,5 +1,4 @@
 package com.example.tomatomall.po;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -13,7 +12,6 @@ import java.time.LocalDateTime;
 @Table(name = "orders")
 @Setter
 @Getter
-@Data
 public class Order {
 
     @Id
