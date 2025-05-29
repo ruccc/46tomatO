@@ -72,6 +72,40 @@
         </el-input>
       </div>
 
+      <!-- 添加排序按钮组 -->
+      <div class="sort-container">
+        <span class="sort-label">排序方式:</span>
+        <el-button-group>
+          <el-button 
+            :type="sortBy === null ? 'primary' : 'default'" 
+            @click="resetSort"
+            size="small"
+          >
+            重置排序
+          </el-button>
+          <el-button 
+            :type="sortBy === 'title' ? 'primary' : 'default'"
+            @click="toggleSort('title')"
+            size="small"
+          >
+            按书名排序
+            <el-icon v-if="sortBy === 'title'">
+              <component :is="sortDirection === 'asc' ? 'SortUp' : 'SortDown'" />
+            </el-icon>
+          </el-button>
+          <el-button 
+            :type="sortBy === 'price' ? 'primary' : 'default'"
+            @click="toggleSort('price')"
+            size="small"
+          >
+            按价格排序
+            <el-icon v-if="sortBy === 'price'">
+              <component :is="sortDirection === 'asc' ? 'SortUp' : 'SortDown'" />
+            </el-icon>
+          </el-button>
+        </el-button-group>
+      </div>
+
       <!-- 搜索调试面板（可选，帮助排查问题） -->
       <div v-if="isSearching && debugMode" class="debug-panel">
         <h3>搜索调试信息</h3>
@@ -113,7 +147,7 @@
       
       <!-- 书籍列表 -->
       <div v-else class="book-grid">
-        <div v-for="book in displayBooks" :key="book.id" class="book-item">
+        <div v-for="book in sortedBooks" :key="book.id" class="book-item">
           <div class="book-cover">
             <img :src="book.cover || defaultCover" alt="book cover">
             <div class="cover-overlay" @click="goToDetail(book.id)"></div>
@@ -132,7 +166,7 @@
 import { ref, onMounted, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Search, InfoFilled } from '@element-plus/icons-vue'
+import { Loading, Search, InfoFilled, SortUp, SortDown } from '@element-plus/icons-vue'
 import { getListInfo, deleteInfo, searchBooks as apiSearchBooks, type Specification } from '../../api/Book/products'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
@@ -158,9 +192,34 @@ const searchKeyword = ref('')
 const filteredBooks = ref<Product[]>([])
 const isSearching = ref(false)
 
-// 计算属性，根据是否在搜索状态决定显示全部书籍还是搜索结果
-const displayBooks = computed(() => {
-  return isSearching.value ? filteredBooks.value : books.value
+// 添加排序相关状态
+const sortBy = ref<'title' | 'price' | null>(null)
+const sortDirection = ref<'asc' | 'desc'>('asc')
+
+// 排序后的书籍列表计算属性
+const sortedBooks = computed(() => {
+  const booksToSort = isSearching.value ? filteredBooks.value : books.value
+  
+  if (!sortBy.value) {
+    return booksToSort // 如果没有排序，则返回原始列表
+  }
+  
+  return [...booksToSort].sort((a, b) => {
+    let comparison = 0
+    
+    if (sortBy.value === 'title') {
+      // 按书名排序（字符串比较）
+      const titleA = (a.title || '').toLowerCase()
+      const titleB = (b.title || '').toLowerCase()
+      comparison = titleA.localeCompare(titleB)
+    } else if (sortBy.value === 'price') {
+      // 按价格排序（数字比较）
+      comparison = (a.price || 0) - (b.price || 0)
+    }
+    
+    // 根据排序方向调整结果
+    return sortDirection.value === 'asc' ? comparison : -comparison
+  })
 })
 
 // 在组件挂载时输出一些调试信息
@@ -358,6 +417,7 @@ const resetSearch = () => {
   searchKeyword.value = ''
   isSearching.value = false
   filteredBooks.value = []
+  resetSort() // 重置排序状态
 }
 
 const fetchBooks = async () => {
@@ -437,6 +497,24 @@ const fetchBooks = async () => {
   } finally {
     loading.value = false
     console.log('书籍列表数据加载完成')
+  }
+}
+
+// 重置排序
+const resetSort = () => {
+  sortBy.value = null
+  sortDirection.value = 'asc'
+}
+
+// 切换排序方式
+const toggleSort = (field: 'title' | 'price') => {
+  if (sortBy.value === field) {
+    // 如果已经按此字段排序，则切换排序方向
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    // 如果是新的排序字段，则设置字段并默认使用升序
+    sortBy.value = field
+    sortDirection.value = 'asc'
   }
 }
 
@@ -625,5 +703,22 @@ onActivated(() => {
   padding: 10px;
   background-color: #fff;
   border-radius: 4px;
+}
+
+/* 添加排序按钮样式 */
+.sort-container {
+  margin: 10px auto 20px;
+  max-width: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.sort-label {
+  color: #666;
+  font-size: 14px;
+  margin-right: 10px;
 }
 </style>
