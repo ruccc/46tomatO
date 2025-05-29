@@ -1,337 +1,460 @@
-<script setup lang="ts">
-import {ref, computed} from 'vue'
-import {getUserDetail, updateUserInfo} from '../../api/user'
-import {parseRole} from "../../utils"
-import {router} from '../../router'
-
-import {ElMessage, ElMessageBox} from "element-plus";
-import axios from 'axios' // 需安装：npm install axios
-
-const role = localStorage.getItem("role") || ''
-const username = localStorage.getItem("username") || ''
-const token  = localStorage.getItem("token") || ''
-
-// 定义显示左侧个人信息需要的字段
-const name = ref('')
-const telephone = ref('')
-const email = ref('')
-const location = ref('')
-const avatar = ref('') // 初始值为默认头像
-
-// 定义个人信息修改时用的字段（仅限于个人信息修改，不含密码）
-const newName = ref('')
-const newAvatarFile = ref<File | null>(null)//新增 newAvatarFile 存储用户选择的图片文件
-
-// 定义密码修改相关字段，仅在密码修改页面使用
-const password = ref('')
-const confirmPassword = ref('')
-
-/*// 固定头像 URL（所有地方均使用此 URL）
-const avatarUrl = "../../assets/tomato@1x-1.0s-200px-200px.svg"*/
-
-// 邮箱格式校验相关
-const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
-const emailLegal = computed(() => emailRegex.test(email.value))
-
-// 控制显示的页面：true 显示“修改个人信息”页面，false 显示“修改密码”页面
-const displayInfoCard = ref(false)
-
-// 密码校验：当有输入确认密码时判断两次输入是否一致
-const hasConfirmPasswordInput = computed(() => confirmPassword.value != '')
-const isPasswordIdentical = computed(() => password.value == confirmPassword.value)
-//const changeDisabled = computed(() => !(hasConfirmPasswordInput.value && isPasswordIdentical.value))
-
-// 获取用户详细信息，更新左侧显示的个人信息及修改用的初始数据
-function getUserInfo() {
-  getUserDetail(username, token).then(res => {
-    if (res.code ==='200'){
-      name.value = res.data.name
-      newName.value = res.data.name
-      telephone.value = res.data.telephone
-      email.value = res.data.email
-      location.value = res.data.location
-      avatar.value = res.data.avatar || '../../assets/tomato@1x-1.0s-200px-200px.svg' // 从后端获取头像
-    }
-  }).catch(error => {
-    ElMessage.error(error.msg || "获取信息失败")
-  })
-}
-
-// 修改点 6：新增 handleAvatarChange 处理文件选择和预览
-function handleAvatarChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files[0]) {
-    newAvatarFile.value = target.files[0]
-    avatar.value = URL.createObjectURL(newAvatarFile.value) // 本地预览
-  }
-}
-
-// 修改点 7：新增 uploadAvatar 上传头像到后端
-async function uploadAvatar() {
-  if (!newAvatarFile.value) return avatar.value
-  console.log('开始上传头像') // 调试
-  const formData = new FormData()
-  formData.append('file', newAvatarFile.value)
-  try {
-    const res = await axios.post('/upload-avatar', formData, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
-    const newUrl = res.data.code === '200' ? res.data.data.avatarUrl : avatar.value
-    console.log('上传成功，返回的头像链接:', newUrl) // 调试
-    return newUrl
-  } catch (error) {
-    console.log('上传失败:', error) // 调试
-    return avatar.value // 即使失败也返回当前值，避免卡住
-  }
-}
-
-// 修改点 8：修改 updateInfo，支持新头像上传
-async function updateInfo() {
-  console.log('点击更新，开始执行 updateInfo') // 调试
-  if (!emailLegal.value) {
-    ElMessage.error("邮箱格式不正确")
-    return
-  }
-  const newAvatarUrl = await uploadAvatar()
-  console.log('获取到 newAvatarUrl:', newAvatarUrl) // 调试
-  const updateData = {
-    username: username,
-    name: newName.value,
-    avatar: newAvatarUrl,
-    role: role,
-    telephone: telephone.value,
-    email: email.value,
-    location: location.value,
-  }
-  console.log('准备发送 updateData:', updateData) // 调试
-  try {
-    const res = await updateUserInfo(updateData, token)
-    console.log('后端响应:', res) // 调试
-    if (res.code === '200') {
-      ElMessage.success('更新成功')
-      avatar.value = newAvatarUrl
-      getUserInfo()
-    } else {
-      ElMessage.error(res.msg || "更新失败")
-    }
-  } catch (error) {
-    ElMessage.error("请求失败")
-    console.log('updateUserInfo 错误:', error) // 调试
-  }
-}
-
-// 修改点 9：调整 updatePassword，使用动态 avatar
-function updatePassword() {
-  if (!hasConfirmPasswordInput.value || !isPasswordIdentical.value) {
-    ElMessage.error("密码不一致或未完整输入")
-    return
-  }
-  const updateData = {
-    username: username,
-    password: password.value,
-    name: name.value,
-    avatar: avatar.value, // 使用动态头像
-    role: role,
-    telephone: telephone.value,
-    email: email.value,
-    location: location.value,
-  }
-  updateUserInfo(updateData, token).then(res => {
-    if (res.code === '200'){
-      ElMessageBox.confirm('成功修改密码，请重新登录', '提示', {
-        confirmButtonText: '重新登录',
-        cancelButtonText: '取消',
-        type: 'success',
-      }).then(() => {
-        localStorage.clear()
-        router.push("/login")
-      })
-    }
-    else {
-      ElMessage.error(res.msg || "密码修改失败")
-    }
-  }).catch(error => {
-    ElMessage.error(error.msg || "请求失败")
-  })
-}
-
-
-// 初始化时获取用户信息
-getUserInfo()
-</script>
-
-
 <template>
-  <el-main class="main-container">
-    <el-card class="aside-card">
-      <div class="avatar-area">
-        <!-- 修改点 10：改为动态显示 avatar -->
-        <el-avatar :src="avatar" :size="80" /> <!-- 原 :icon="UserFilled" -->
-<!--        <el-avatar :src="UserFilled" size="80"></el-avatar>-->
-        <span class="avatar-text"> 欢迎您，{{ username }}</span>
+  <div class="dashboard-container">
+    <el-row :gutter="20">
+      <!-- 用户基本信息卡片 -->
+      <el-col :span="8">
+        <el-card class="box-card">
+          <div slot="header" class="clearfix">
+            <span>个人信息</span>
+            <el-button style="float: right; padding: 3px 0" type="text" @click="showEditForm">修改信息</el-button>
+          </div>
+          <div class="user-profile">
+            <div class="avatar-container">
+              <img :src="avatarUrl || defaultAvatar" alt="用户头像" class="user-avatar">
+            </div>
+            <div class="user-info">
+              <h3>{{ userInfo.name || '未设置姓名' }}</h3>
+              <p>账号: {{ userInfo.account || userInfo.email || '未设置' }}</p>
+              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
+              <p>手机: {{ userInfo.phone || '未设置' }}</p>
+              <p>注册时间: {{ formatDate(userInfo.createTime) }}</p>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <!-- 会员信息卡片 -->
+      <el-col :span="16">
+        <el-card class="box-card" v-if="memberInfo">
+          <div slot="header" class="clearfix">
+            <span>会员信息</span>
+            <el-button style="float: right; padding: 3px 0; margin-left: 10px;" type="text" 
+                      @click="deleteMemberShip" v-if="memberInfo">取消会员</el-button>
+          </div>
+          
+          <el-row class="member-info-row">
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">会员编号</div>
+                <div class="value">{{ memberInfo.memberNo }}</div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">会员等级</div>
+                <div class="value">
+                  <el-tag :type="getLevelTag(memberInfo.level)">
+                    {{ memberInfo.levelInfo ? memberInfo.levelInfo.levelName : `等级${memberInfo.level}` }}
+                  </el-tag>
+                </div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">会员状态</div>
+                <div class="value">
+                  <el-tag :type="memberInfo.status === 1 ? 'success' : 'danger'">
+                    {{ memberInfo.status === 1 ? '正常' : '禁用' }}
+                  </el-tag>
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+          
+          <el-row class="member-info-row">
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">当前积分</div>
+                <div class="value points">{{ memberInfo.points }}</div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">成长值</div>
+                <div class="value growth">{{ memberInfo.growthValue }}</div>
+              </div>
+            </el-col>
+            <el-col :span="8">
+              <div class="info-item">
+                <div class="label">升级还需</div>
+                <div class="value" v-if="nextLevelInfo">
+                  {{ nextLevelInfo.growthPoint - memberInfo.growthValue }} 成长值
+                </div>
+                <div class="value" v-else>
+                  已是最高等级
+                </div>
+              </div>
+            </el-col>
+          </el-row>
+          
+          <el-progress 
+            :percentage="levelProgress" 
+            :stroke-width="18"
+            :color="customColorMethod">
+          </el-progress>
+          
+          <el-divider content-position="center">会员特权</el-divider>
+          
+          <el-row class="member-benefits-row">
+            <el-col :span="8" v-for="(benefit, index) in memberBenefits" :key="index">
+              <div class="benefit-item">
+                <i :class="benefit.icon"></i>
+                <div class="benefit-text">{{ benefit.text }}</div>
+              </div>
+            </el-col>
+          </el-row>
+        </el-card>
+        
+        <!-- 非会员提示卡片 -->
+        <el-card class="box-card" v-else>
+          <div slot="header" class="clearfix">
+            <span>会员特权</span>
+            <el-button style="float: right; padding: 3px 0" type="text" @click="goToCreateMember">
+              立即加入会员
+            </el-button>
+          </div>
+          <div class="non-member-tip">
+            <i class="el-icon-star-off"></i>
+            <h3>尚未成为会员</h3>
+            <p>成为会员即可享受购书折扣、积分累积、等级特权等多重福利</p>
+            <el-button type="primary" @click="goToCreateMember">立即成为会员</el-button>
+          </div>
+        </el-card>
+        
+        <!-- 最近订单或其他内容... -->
+      </el-col>
+    </el-row>
+    
+    <!-- 用户信息编辑表单 -->
+    <el-dialog title="修改个人信息" :visible.sync="editFormVisible" width="50%">
+      <el-form ref="editForm" :model="editForm" :rules="rules" label-width="100px">
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="editForm.name"></el-input>
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="editForm.email"></el-input>
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="editForm.phone"></el-input>
+        </el-form-item>
+        <el-form-item label="地址" prop="address" v-if="memberInfo">
+          <el-input v-model="editForm.address"></el-input>
+        </el-form-item>
+        <el-form-item label="生日" prop="birthday" v-if="memberInfo">
+          <el-date-picker v-model="editForm.birthday" type="date" 
+                          placeholder="选择生日" format="yyyy-MM-dd" value-format="yyyy-MM-dd">
+          </el-date-picker>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="editFormVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitEditForm">确定</el-button>
       </div>
-
-      <el-divider></el-divider>
-
-      <el-descriptions :column="1" border title="个人信息">
-        <template #extra>
-          <el-button type="primary" @click="displayInfoCard = !displayInfoCard;" class="custom-primary">
-            <span v-if="displayInfoCard">修改密码</span>
-            <span v-else>修改个人信息</span>
-          </el-button>
-        </template>
-        <el-descriptions-item label="真实姓名">
-          {{ name }}
-        </el-descriptions-item>
-        <el-descriptions-item label="身份">
-          <el-tag>{{ parseRole(role) }}</el-tag>
-        </el-descriptions-item>
-        <el-descriptions-item label="联系电话">
-          {{ telephone }}
-        </el-descriptions-item>
-        <el-descriptions-item label="邮箱">
-          {{ email }}
-        </el-descriptions-item>
-        <el-descriptions-item label="地址">
-          {{ location }}
-        </el-descriptions-item>
-
-      </el-descriptions>
-    </el-card>
-
-    <el-card v-if="displayInfoCard" class="change-card">
-      <template #header>
-        <div class="card-header">
-          <span>个人信息更新</span>
-          <el-button type="primary" @click="updateInfo">更新</el-button>
-        </div>
-      </template>
-
-      <el-form>
-        <el-form-item>
-          <label>用户名</label>
-          <el-input v-model="username" disabled />
-        </el-form-item>
-        <!-- 修改点 11：添加头像显示和上传控件 -->
-        <el-form-item>
-          <label>头像</label>
-          <el-avatar :src="avatar" :size="50" />
-          <input type="file" accept="image/*" @change="handleAvatarChange" />
-        </el-form-item>
-
-        <el-form-item>
-          <label for="name">真实姓名</label>
-          <el-input type="text" id="name" v-model="newName"/>
-        </el-form-item>
-
-        <el-form-item>
-          <label for="telephone">手机号</label>
-          <el-input id="telephone" v-model="telephone"/>
-        </el-form-item>
-
-        <el-form-item>
-            <label for="email">邮箱</label>
-          <el-input id="email" v-model="email"/>
-          <!-- 邮箱校验提示 -->
-          <span v-if="!emailLegal" class="error-warn">邮箱格式不正确</span>
-        </el-form-item>
-
-        <el-form-item>
-          <label for="location">地址</label>
-          <el-input
-              id="location"
-              type="textarea"
-              rows="4"
-              v-model="location"
-              placeholder="请输入地址">
-          </el-input>
-        </el-form-item>
-
-      </el-form>
-    </el-card>
-
-    <el-card v-else class="change-card">
-      <template #header>
-        <div class="card-header">
-          <span>修改密码</span>
-          <el-button type="primary" @click="updatePassword">修改</el-button>
-        </div>
-      </template>
-
-      <el-form>
-        <el-form-item>
-          <label for="password">新密码</label>
-          <el-input
-              type="password"
-              id="password"
-              show-password
-              v-model="password"
-              placeholder="•••••••••" required/>
-        </el-form-item>
-        <el-form-item>
-          <label v-if="!hasConfirmPasswordInput" for="confirm_password">确认密码</label>
-          <label v-else-if="!isPasswordIdentical" for="confirm_password" class="error-warn">密码不一致</label>
-          <label v-else for="confirm_password">确认密码</label>
-
-          <el-input type="password" id="confirm_password" v-model="confirmPassword"
-                    :class="{'error-warn-input' :(hasConfirmPasswordInput && !isPasswordIdentical)}"
-                    placeholder="•••••••••" required/>
-        </el-form-item>
-      </el-form>
-
-    </el-card>
-  </el-main>
-
+    </el-dialog>
+    
+    <!-- 删除会员确认对话框 -->
+    <el-dialog
+      title="取消会员确认"
+      :visible.sync="deleteMemberDialogVisible"
+      width="30%">
+      <span>确定要取消您的会员资格吗？这将导致您失去所有会员特权和积累的积分。</span>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="deleteMemberDialogVisible = false">取消</el-button>
+        <el-button type="danger" @click="confirmDeleteMember">确定取消会员</el-button>
+      </div>
+    </el-dialog>
+  </div>
 </template>
 
+<script>
+import { mapGetters } from 'vuex'
+import { formatDate } from '@/utils/date'
+import { getMemberById, updateMember, deleteMember } from '@/api/members/member'
+
+export default {
+  name: 'Dashboard',
+  data() {
+    return {
+      userInfo: {},
+      memberInfo: null,
+      nextLevelInfo: null,
+      editFormVisible: false,
+      deleteMemberDialogVisible: false,
+      defaultAvatar: require('@/assets/default-avatar.png'),
+      editForm: {
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        birthday: ''
+      },
+      rules: {
+        name: [
+          { required: true, message: '请输入姓名', trigger: 'blur' },
+          { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' }
+        ],
+        email: [
+          { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+          { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+        ],
+        phone: [
+          { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+        ]
+      },
+      memberLevels: [
+        { id: 1, levelName: '普通会员', growthPoint: 0, discount: 0.95, description: '注册即可成为' },
+        { id: 2, levelName: '白银会员', growthPoint: 1000, discount: 0.9, description: '消费满1000成长值' },
+        { id: 3, levelName: '黄金会员', growthPoint: 5000, discount: 0.85, description: '消费满5000成长值' },
+        { id: 4, levelName: '钻石会员', growthPoint: 10000, discount: 0.8, description: '消费满10000成长值' }
+      ],
+      memberBenefits: [
+        { icon: 'el-icon-shopping-cart-full', text: '购书专属折扣' },
+        { icon: 'el-icon-star-on', text: '积分累积升级' },
+        { icon: 'el-icon-present', text: '会员专享活动' },
+        { icon: 'el-icon-time', text: '优先预约新书' },
+        { icon: 'el-icon-goods', text: '生日专属礼品' },
+        { icon: 'el-icon-medal', text: '专属客服服务' }
+      ],
+      levelTags: {
+        1: '',
+        2: 'success',
+        3: 'warning',
+        4: 'danger'
+      }
+    }
+  },
+  computed: {
+    ...mapGetters([
+      'userId',
+      'userName',
+      'avatarUrl'
+    ]),
+    levelProgress() {
+      if (!this.memberInfo || !this.nextLevelInfo) {
+        return 100
+      }
+      
+      const currentGrowth = this.memberInfo.growthValue
+      const currentLevelGrowth = this.getCurrentLevelGrowthPoint()
+      const nextLevelGrowth = this.nextLevelInfo.growthPoint
+      
+      const progress = ((currentGrowth - currentLevelGrowth) / (nextLevelGrowth - currentLevelGrowth)) * 100
+      return Math.min(Math.max(progress, 0), 100)
+    }
+  },
+  created() {
+    this.fetchUserInfo()
+    this.fetchMemberInfo()
+  },
+  methods: {
+    formatDate,
+    getLevelTag(level) {
+      return this.levelTags[level] || ''
+    },
+    fetchUserInfo() {
+      // 获取用户基本信息
+      this.userInfo = {
+        id: this.userId,
+        name: this.userName,
+        email: '',
+        phone: '',
+        createTime: new Date()
+      }
+      // TODO: 通过API获取用户详细信息
+    },
+    fetchMemberInfo() {
+      // 获取会员信息
+      if (!this.userId) return
+      
+      getMemberById(this.userId).then(response => {
+        if (response.data.code === 200) {
+          this.memberInfo = response.data.data
+          this.findNextLevel()
+        }
+      }).catch(error => {
+        console.error('获取会员信息出错:', error)
+        // 不需要提示错误，因为可能用户不是会员
+      })
+    },
+    findNextLevel() {
+      if (!this.memberInfo) return
+      
+      const currentLevel = this.memberInfo.level
+      const nextLevel = this.memberLevels.find(level => level.id > currentLevel)
+      this.nextLevelInfo = nextLevel
+    },
+    getCurrentLevelGrowthPoint() {
+      const currentLevel = this.memberInfo.level
+      const level = this.memberLevels.find(lvl => lvl.id === currentLevel)
+      return level ? level.growthPoint : 0
+    },
+    customColorMethod(percentage) {
+      if (percentage < 30) {
+        return '#909399'
+      } else if (percentage < 70) {
+        return '#67c23a'
+      } else {
+        return '#f56c6c'
+      }
+    },
+    showEditForm() {
+      this.editForm = {
+        name: this.userInfo.name || '',
+        email: this.userInfo.email || '',
+        phone: this.userInfo.phone || ''
+      }
+      
+      // 如果是会员，添加会员特有字段
+      if (this.memberInfo) {
+        this.editForm.id = this.memberInfo.id
+        this.editForm.address = this.memberInfo.address || ''
+        this.editForm.birthday = this.memberInfo.birthday || ''
+      }
+      
+      this.editFormVisible = true
+    },
+    submitEditForm() {
+      this.$refs.editForm.validate((valid) => {
+        if (valid) {
+          // 更新基本用户信息
+          // TODO: 调用用户信息更新API
+          
+          // 如果是会员，同时更新会员信息
+          if (this.memberInfo) {
+            // 添加必要字段
+            const memberUpdateData = {
+              ...this.editForm,
+              id: this.memberInfo.id,
+              status: this.memberInfo.status
+            }
+            
+            updateMember(memberUpdateData).then(response => {
+              if (response.data.code === 200) {
+                this.$message.success('会员信息更新成功')
+                // 刷新会员信息
+                this.fetchMemberInfo()
+              } else {
+                this.$message.error(response.data.message || '会员信息更新失败')
+              }
+            }).catch(error => {
+              console.error('更新会员信息出错:', error)
+              this.$message.error('会员信息更新失败')
+            })
+          }
+          
+          this.editFormVisible = false
+          this.$message.success('个人信息更新成功')
+        } else {
+          this.$message.warning('请完善表单信息')
+          return false
+        }
+      })
+    },
+    goToCreateMember() {
+      this.$router.push('/member/create')
+    },
+    deleteMemberShip() {
+      this.deleteMemberDialogVisible = true
+    },
+    confirmDeleteMember() {
+      if (!this.memberInfo) return
+      
+      deleteMember(this.memberInfo.id).then(response => {
+        if (response.data.code === 200) {
+          this.$message.success('已成功取消会员资格')
+          this.memberInfo = null
+        } else {
+          this.$message.error(response.data.message || '取消会员失败')
+        }
+      }).catch(error => {
+        console.error('取消会员出错:', error)
+        this.$message.error('取消会员失败')
+      }).finally(() => {
+        this.deleteMemberDialogVisible = false
+      })
+    }
+  }
+}
+</script>
 
 <style scoped>
-
-.custom-primary {
-  background-color: #FFB200;
-  border-color: #FFB200;
-  /* 如果需要调整文字颜色 */
+.dashboard-container {
+  padding: 20px;
 }
-
-
-.error-warn {
-  color: red;
-}
-
-.error-warn-input {
-  --el-input-focus-border-color: red;
-}
-
-.main-container {
-  display: flex;
-  flex-direction: row;
-  padding: 15px;
-  gap: 5px;
-  justify-content: center;
-}
-
-.card-header {
+.user-profile {
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
-
-.change-card {
-  width: 66%;
+.avatar-container {
+  margin-right: 20px;
 }
-
-.avatar-area {
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.user-info h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+.user-info p {
+  margin: 5px 0;
+  color: #606266;
+}
+.member-info-row {
+  margin-bottom: 20px;
+}
+.info-item {
+  text-align: center;
+  padding: 10px;
+}
+.info-item .label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 5px;
+}
+.info-item .value {
+  font-size: 18px;
+  font-weight: bold;
+}
+.points {
+  color: #f56c6c;
+}
+.growth {
+  color: #67c23a;
+}
+.member-benefits-row {
+  margin-top: 20px;
+}
+.benefit-item {
   display: flex;
-  justify-content: space-around;
+  flex-direction: column;
   align-items: center;
-  gap: 30px;
+  margin-bottom: 20px;
 }
-
-.avatar-text {
-  font-size: x-large;
-  font-weight: bolder;
-  padding-right: 40px;
+.benefit-item i {
+  font-size: 30px;
+  color: #409EFF;
+  margin-bottom: 10px;
 }
-
-
+.benefit-text {
+  font-size: 14px;
+}
+.non-member-tip {
+  text-align: center;
+  padding: 30px 0;
+}
+.non-member-tip i {
+  font-size: 50px;
+  color: #E6A23C;
+}
+.non-member-tip h3 {
+  margin: 15px 0;
+  color: #606266;
+}
+.non-member-tip p {
+  margin-bottom: 20px;
+  color: #909399;
+}
 </style>

@@ -54,10 +54,34 @@
       <!-- 清晰标识这是商品列表页 -->
       <h1 class="page-title">商品列表页面</h1>
       
+      <!-- 添加搜索框 -->
+      <div class="search-container">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="请输入书籍名称搜索"
+          clearable
+          @clear="fetchBooks"
+          class="search-input"
+        >
+          <template #append>
+            <el-button @click="searchBooks">
+              <el-icon><Search /></el-icon>
+            </el-button>
+          </template>
+        </el-input>
+      </div>
+      
       <!-- 加载状态显示 -->
       <div v-if="loading" class="loading-state">
         <el-icon class="is-loading"><Loading /></el-icon>
         <p>正在加载商品数据...</p>
+      </div>
+      
+      <!-- 搜索无结果状态 -->
+      <div v-else-if="isSearching && filteredBooks.length === 0" class="empty-state">
+        <el-icon><InfoFilled /></el-icon>
+        <p class="empty-text">未找到匹配"{{ searchKeyword }}"的书籍</p>
+        <el-button type="primary" @click="resetSearch">返回全部书籍</el-button>
       </div>
       
       <!-- 空状态显示 -->
@@ -69,7 +93,7 @@
       
       <!-- 书籍列表 -->
       <div v-else class="book-grid">
-        <div v-for="book in books" :key="book.id" class="book-item">
+        <div v-for="book in displayBooks" :key="book.id" class="book-item">
           <div class="book-cover">
             <img :src="book.cover || defaultCover" alt="book cover">
             <div class="cover-overlay" @click="goToDetail(book.id)"></div>
@@ -85,11 +109,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, onMounted, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
-import { getListInfo, deleteInfo, type Specification } from '../../api/Book/products'
+import { Loading, Search, InfoFilled } from '@element-plus/icons-vue'
+import { getListInfo, deleteInfo, searchBooks as apiSearchBooks, type Specification } from '../../api/Book/products'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
 // 添加loading状态
@@ -110,6 +134,14 @@ interface Product {
 
 const books = ref<Product[]>([])
 const role = ref(localStorage.getItem('role') || '')
+const searchKeyword = ref('')
+const filteredBooks = ref<Product[]>([])
+const isSearching = ref(false)
+
+// 计算属性，根据是否在搜索状态决定显示全部书籍还是搜索结果
+const displayBooks = computed(() => {
+  return isSearching.value ? filteredBooks.value : books.value
+})
 
 // 在组件挂载时输出一些调试信息
 console.log('ProductList组件已挂载')
@@ -212,6 +244,56 @@ const clearAllBooks = async () => {
   }
 }
 
+const searchBooks = async () => {
+  if (!searchKeyword.value.trim()) {
+    // 如果搜索关键字为空，重置搜索状态，显示全部书籍
+    resetSearch()
+    return
+  }
+  
+  loading.value = true
+  console.log('搜索关键字:', searchKeyword.value)
+  
+  try {
+    const res = await apiSearchBooks(searchKeyword.value)
+    
+    if (res.data && res.data.code === 200) {
+      let searchData = res.data.data
+      
+      // 处理分页数据结构
+      if (searchData && typeof searchData === 'object') {
+        if (searchData.content && Array.isArray(searchData.content)) {
+          searchData = searchData.content
+        }
+      }
+      
+      if (Array.isArray(searchData)) {
+        filteredBooks.value = searchData.filter(book => book && book.id && book.id !== 'undefined')
+        isSearching.value = true
+        console.log('搜索结果:', filteredBooks.value)
+      } else {
+        console.error('API返回的搜索数据不是有效数组:', searchData)
+        filteredBooks.value = []
+        isSearching.value = true
+      }
+    } else {
+      console.error('搜索API返回错误:', res.data)
+      ElMessage.error(res.data?.msg || '搜索失败')
+    }
+  } catch (error) {
+    console.error('搜索时发生异常:', error)
+    ElMessage.error('搜索过程中发生错误')
+  } finally {
+    loading.value = false
+  }
+}
+
+const resetSearch = () => {
+  searchKeyword.value = ''
+  isSearching.value = false
+  filteredBooks.value = []
+}
+
 const fetchBooks = async () => {
   loading.value = true
   console.log('开始获取商品列表数据')
@@ -250,9 +332,13 @@ const fetchBooks = async () => {
       
       // 确保books是数组
       if (Array.isArray(booksData)) {
-        // 过滤掉没有有效ID的书籍
         books.value = booksData.filter(book => book && book.id && book.id !== 'undefined')
         console.log('处理后的书籍列表:', books.value)
+        
+        // 重置搜索状态
+        if (isSearching.value) {
+          resetSearch()
+        }
       } else {
         console.error('API返回的数据不是有效数组:', booksData)
         books.value = []
@@ -327,6 +413,17 @@ onActivated(() => {
   flex: 1;
   padding: 20px;
   background-color: #faf3e0;
+}
+
+.search-container {
+  margin: 20px auto;
+  max-width: 600px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
 }
 
 .empty-state {

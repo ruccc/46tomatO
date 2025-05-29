@@ -70,3 +70,11 @@ export const deleteInfo = (id: string) => {
             return res
         })
 }
+
+// 搜索商品
+export const searchBooks = (keyword: string) => {
+    return axios.get(`${PRODUCTS_MODULE}/search?keyword=${encodeURIComponent(keyword)}`)
+        .then(res => {
+            return res
+        })
+}
