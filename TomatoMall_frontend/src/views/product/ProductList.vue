@@ -62,6 +62,7 @@
           clearable
           @clear="fetchBooks"
           class="search-input"
+          @keyup.enter="searchBooks"
         >
           <template #append>
             <el-button @click="searchBooks">
@@ -69,6 +70,25 @@
             </el-button>
           </template>
         </el-input>
+      </div>
+
+      <!-- 搜索调试面板（可选，帮助排查问题） -->
+      <div v-if="isSearching && debugMode" class="debug-panel">
+        <h3>搜索调试信息</h3>
+        <p>搜索关键字: {{ searchKeyword }}</p>
+        <p>结果条数: {{ filteredBooks.length }}</p>
+        <el-button size="small" @click="toggleDebugDetails">
+          {{ showDebugDetails ? '隐藏详情' : '显示API响应详情' }}
+        </el-button>
+        <div v-if="showDebugDetails" class="debug-details">
+          <pre>{{ JSON.stringify(apiResponse, null, 2) }}</pre>
+        </div>
+        <h4>所有可用书籍（本地数据，{{ books.length }}本）:</h4>
+        <ul class="debug-books-list">
+          <li v-for="book in books" :key="book.id">
+            {{ book.title }} (ID: {{ book.id }})
+          </li>
+        </ul>
       </div>
       
       <!-- 加载状态显示 -->
@@ -244,48 +264,94 @@ const clearAllBooks = async () => {
   }
 }
 
+// 添加调试相关状态，这些在模板中使用但之前未定义
+const debugMode = ref(false) // 默认关闭调试模式
+const showDebugDetails = ref(false)
+const apiResponse = ref<any>(null)
+
+// 切换显示调试详情
+const toggleDebugDetails = () => {
+  showDebugDetails.value = !showDebugDetails.value
+}
+
 const searchBooks = async () => {
   if (!searchKeyword.value.trim()) {
-    // 如果搜索关键字为空，重置搜索状态，显示全部书籍
     resetSearch()
     return
   }
   
   loading.value = true
-  console.log('搜索关键字:', searchKeyword.value)
+  console.log('开始搜索，关键字:', searchKeyword.value)
   
   try {
+    // 修改：简化API调用，只使用关键字参数，避免可能的参数错误
     const res = await apiSearchBooks(searchKeyword.value)
+    console.log('搜索API完整响应:', res)
+    apiResponse.value = res.data
     
     if (res.data && res.data.code === 200) {
       let searchData = res.data.data
       
+      // 打印更详细的内容，帮助排查
+      console.log('搜索成功，返回数据结构:', {
+        dataType: typeof searchData,
+        isArray: Array.isArray(searchData),
+        dataKeys: searchData ? Object.keys(searchData) : 'null',
+        data: searchData
+      })
+      
       // 处理分页数据结构
       if (searchData && typeof searchData === 'object') {
         if (searchData.content && Array.isArray(searchData.content)) {
+          console.log('检测到分页数据结构，提取content数组')
           searchData = searchData.content
         }
       }
       
       if (Array.isArray(searchData)) {
         filteredBooks.value = searchData.filter(book => book && book.id && book.id !== 'undefined')
+        console.log('过滤后的搜索结果:', filteredBooks.value)
         isSearching.value = true
-        console.log('搜索结果:', filteredBooks.value)
+        
+        // 如果API返回空结果，尝试本地搜索
+        if (filteredBooks.value.length === 0) {
+          console.log('API返回空结果，尝试本地搜索')
+          localSearchBooks()
+        }
       } else {
         console.error('API返回的搜索数据不是有效数组:', searchData)
         filteredBooks.value = []
         isSearching.value = true
+        ElMessage.warning('搜索结果格式不符合预期，尝试本地搜索')
+        localSearchBooks()
       }
     } else {
       console.error('搜索API返回错误:', res.data)
-      ElMessage.error(res.data?.msg || '搜索失败')
+      ElMessage.error(res.data?.msg || '搜索失败，尝试本地搜索')
+      localSearchBooks()
     }
   } catch (error) {
     console.error('搜索时发生异常:', error)
-    ElMessage.error('搜索过程中发生错误')
+    // 这里不显示错误消息，直接使用本地搜索
+    console.log('API搜索失败，切换到本地搜索')
+    localSearchBooks()
   } finally {
     loading.value = false
   }
+}
+
+// 添加本地搜索函数
+const localSearchBooks = () => {
+  const keyword = searchKeyword.value.toLowerCase().trim()
+  console.log('执行本地搜索，关键字:', keyword)
+  
+  filteredBooks.value = books.value.filter(book => {
+    return (book.title && book.title.toLowerCase().includes(keyword)) || 
+           (book.description && book.description.toLowerCase().includes(keyword))
+  })
+  
+  console.log('本地搜索结果数量:', filteredBooks.value.length)
+  isSearching.value = true
 }
 
 const resetSearch = () => {
@@ -533,5 +599,31 @@ onActivated(() => {
   font-size: 3rem;
   margin-bottom: 20px;
   color: #ff4400;
+}
+
+/* 添加调试面板样式 */
+.debug-panel {
+  margin: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.debug-details {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #eee;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.debug-books-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #fff;
+  border-radius: 4px;
 }
 </style>
