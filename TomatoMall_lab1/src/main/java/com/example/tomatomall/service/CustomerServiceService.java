@@ -5,7 +5,7 @@ import com.example.tomatomall.vo.CustomerServiceSessionVO;
 import java.util.List;
 
 public interface CustomerServiceService {
-    CustomerServiceSessionVO createCustomerServiceSession(Integer customerId, String questionType, String content, String orderId);
+//    CustomerServiceSessionVO createCustomerServiceSession(Integer customerId, String questionType, String content, String orderId);
 
     List<CustomerServiceSessionVO> getCustomerServiceSessions(Integer userId, int page, int size);
 
