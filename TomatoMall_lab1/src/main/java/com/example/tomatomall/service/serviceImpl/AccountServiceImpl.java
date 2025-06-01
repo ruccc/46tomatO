@@ -87,7 +87,15 @@ public class AccountServiceImpl implements AccountService {
             account.setRole(accountVO.getRole());
         }
 
+        if(accountVO.getMemberLevel()!=null){
+            account.setMemberLevel(accountVO.getMemberLevel());
+        }
+
         accountRepository.save(account);
         return "更新成功";
+    }
+
+    public AccountVO getAccountById(Integer id){
+        return accountRepository.findById(id).get().toVO();
     }
 }

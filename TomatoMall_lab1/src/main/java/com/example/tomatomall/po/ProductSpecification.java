@@ -1,6 +1,8 @@
 package com.example.tomatomall.po;
 
 import javax.persistence.*;
+
+import com.example.tomatomall.vo.ProductSpecificationVO;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -26,4 +28,13 @@ public class ProductSpecification {
     @JoinColumn(name = "product_id")
     @JsonBackReference
     private Product product;
+
+    public ProductSpecificationVO toVO() {
+        ProductSpecificationVO productSpecificationVO = new ProductSpecificationVO();
+        productSpecificationVO.setId(id);
+        productSpecificationVO.setItem(item);
+        productSpecificationVO.setValue(value);
+        productSpecificationVO.setProduct(product);
+        return productSpecificationVO;
+    }
 }

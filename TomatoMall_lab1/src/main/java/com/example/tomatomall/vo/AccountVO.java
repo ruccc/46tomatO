@@ -27,6 +27,8 @@ public class AccountVO {
 
     private String location;
 
+    public String memberLevel;
+
     public Account toPO(){
         Account account = new Account();
         account.setUsername(username);
@@ -38,6 +40,9 @@ public class AccountVO {
         account.setTelephone(telephone);
         account.setEmail(email);
         account.setLocation(location);
+
+        account.setMemberLevel(memberLevel);
+
         return account;
     }
 }
