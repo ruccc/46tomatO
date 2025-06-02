@@ -70,3 +70,17 @@ export const deleteInfo = (id: string) => {
             return res
         })
 }
+
+// 简化搜索商品API实现，避免可能的参数错误
+export const searchBooks = (keyword: string) => {
+    // 使用 encodeURIComponent 确保关键字中的特殊字符被正确编码
+    return axios.get(`${PRODUCTS_MODULE}/search?keyword=${encodeURIComponent(keyword)}`)
+        .then(res => {
+            return res
+        })
+        .catch(error => {
+            // 添加错误日志，帮助排查问题
+            console.error('搜索API请求失败:', error)
+            throw error
+        })
+}

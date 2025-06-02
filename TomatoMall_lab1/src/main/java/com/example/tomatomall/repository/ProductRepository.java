@@ -15,4 +15,6 @@ public interface ProductRepository extends JpaRepository<Product, String> {
     Page<Product> findByTitleContainingAndPriceBetween(String title, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
 
     Page<Product> findByPriceBetween(BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
+
+    Page<Product> findByTitle(String title, Pageable pageable);
 }

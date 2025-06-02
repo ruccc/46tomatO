@@ -2,6 +2,7 @@ package com.example.tomatomall.service;
 
 import com.example.tomatomall.dto.ProductCreateDTO;
 import com.example.tomatomall.dto.ProductUpdateDTO;
+import com.example.tomatomall.po.Product;
 import com.example.tomatomall.vo.ProductDetailVO;
 import com.example.tomatomall.vo.ProductVO;
 import com.example.tomatomall.dto.StockpileAdjustDTO;
@@ -23,4 +24,5 @@ public interface ProductService {
 
     @Transactional(readOnly = true)
     Page<ProductVO> searchProducts(String keyword, BigDecimal minPrice, BigDecimal maxPrice, Pageable pageable);
+    ProductVO getProductById(String Id);
 }

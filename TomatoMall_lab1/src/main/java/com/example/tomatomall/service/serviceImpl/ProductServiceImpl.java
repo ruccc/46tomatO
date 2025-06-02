@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -178,4 +180,34 @@ public class ProductServiceImpl implements ProductService {
                 .map(productMapper::toVO);
     }
 
+
+    public ProductVO getProductById(String id) {
+        // 1. 从仓库获取 Optional<Product>
+        Optional<Product> optionalProduct = productRepository.findById(id);
+
+        // 2. 使用 map 将 Product 转换为 ProductVO
+        //    如果 optionalProduct 为空，则使用 orElse 提供一个默认的 ProductVO
+        return optionalProduct.map(product -> {
+            // 3. 创建并返回新的 ProductVO 实例
+            //    这里假设 ProductVO 有一个接受 Product 的构造函数或 setter 方法
+            //    你需要根据你的 ProductVO 实际结构来填充数据
+            ProductVO productVO = new ProductVO();
+            productVO.setId(product.getId());
+            productVO.setTitle(product.getTitle());
+            productVO.setPrice(product.getPrice());
+            productVO.setRate(product.getRate());
+            productVO.setDescription(product.getDescription());
+            productVO.setCover(product.getCover());
+            productVO.setDetail(product.getDetail());
+            Set<ProductSpecification> specs = product.getSpecifications();
+            Set<ProductSpecificationVO> specVOs = new HashSet<>();
+            for(ProductSpecification a:specs){
+                specVOs.add(a.toVO());
+            }
+            productVO.setSpecifications(specVOs);
+            return productVO;
+        }).orElse(new ProductVO()); // 或者返回 null，或者抛出异常，取决于你的业务需求
+        // 如果返回 null，可以写成 .orElse(null)
+        // 如果想找不到时抛出异常，可以写成 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
+    }
 }

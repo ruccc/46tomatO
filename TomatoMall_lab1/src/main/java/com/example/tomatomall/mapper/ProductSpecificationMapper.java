@@ -13,7 +13,7 @@ import java.util.Set;
 @Mapper(componentModel = "spring")
 public interface ProductSpecificationMapper {
 
-    @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "product", source = "product")
     ProductSpecificationVO toVO(ProductSpecification spec);
 
     Set<ProductSpecificationVO> toVOSet(Set<ProductSpecification> specifications);

@@ -46,6 +46,10 @@ public class Account {
     private String email;
 
     @Basic
+    @Column(name = "member_level")
+    private String memberLevel;
+
+    @Basic
     @Column(name = "location")
     private String location;
     public AccountVO toVO(){
@@ -60,6 +64,8 @@ public class Account {
         accountVO.setTelephone(telephone);
         accountVO.setEmail(email);
         accountVO.setLocation(location);
+
+        accountVO.setMemberLevel(memberLevel);
 
         return accountVO;
     }

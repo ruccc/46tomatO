@@ -54,29 +54,75 @@
       <!-- 清晰标识这是商品列表页 -->
       <h1 class="page-title">商品列表页面</h1>
       
-      <!-- 搜索和排序区域 -->
-      <div class="search-sort-area">
+      <!-- 添加搜索框 -->
+      <div class="search-container">
         <el-input
-          v-model="searchQuery"
-          placeholder="请输入书名关键词"
+          v-model="searchKeyword"
+          placeholder="请输入书籍名称搜索"
+          clearable
+          @clear="fetchBooks"
           class="search-input"
-          @input="handleSearch"
+          @keyup.enter="searchBooks"
         >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
+          <template #append>
+            <el-button @click="searchBooks">
+              <el-icon><Search /></el-icon>
+            </el-button>
           </template>
         </el-input>
-        
-        <el-select v-model="sortOption" placeholder="排序方式" @change="handleSort" class="sort-select">
-          <el-option label="默认排序" value="default"></el-option>
-          <el-option label="价格从低到高" value="price-asc"></el-option>
-          <el-option label="价格从高到低" value="price-desc"></el-option>
-          <el-option label="评分从高到低" value="rate-desc"></el-option>
-          <el-option label="书名字典序升序" value="title-asc"></el-option>
-          <el-option label="书名字典序降序" value="title-desc"></el-option>
-        </el-select>
-        
-        <el-button type="primary" @click="resetFilters">重置</el-button>
+      </div>
+
+      <!-- 添加排序按钮组 -->
+      <div class="sort-container">
+        <span class="sort-label">排序方式:</span>
+        <el-button-group>
+          <el-button 
+            :type="sortBy === null ? 'primary' : 'default'" 
+            @click="resetSort"
+            size="small"
+          >
+            重置排序
+          </el-button>
+          <el-button 
+            :type="sortBy === 'title' ? 'primary' : 'default'"
+            @click="toggleSort('title')"
+            size="small"
+          >
+            按书名排序
+            <el-icon v-if="sortBy === 'title'">
+              <component :is="sortDirection === 'asc' ? 'SortUp' : 'SortDown'" />
+            </el-icon>
+          </el-button>
+          <el-button 
+            :type="sortBy === 'price' ? 'primary' : 'default'"
+            @click="toggleSort('price')"
+            size="small"
+          >
+            按价格排序
+            <el-icon v-if="sortBy === 'price'">
+              <component :is="sortDirection === 'asc' ? 'SortUp' : 'SortDown'" />
+            </el-icon>
+          </el-button>
+        </el-button-group>
+      </div>
+
+      <!-- 搜索调试面板（可选，帮助排查问题） -->
+      <div v-if="isSearching && debugMode" class="debug-panel">
+        <h3>搜索调试信息</h3>
+        <p>搜索关键字: {{ searchKeyword }}</p>
+        <p>结果条数: {{ filteredBooks.length }}</p>
+        <el-button size="small" @click="toggleDebugDetails">
+          {{ showDebugDetails ? '隐藏详情' : '显示API响应详情' }}
+        </el-button>
+        <div v-if="showDebugDetails" class="debug-details">
+          <pre>{{ JSON.stringify(apiResponse, null, 2) }}</pre>
+        </div>
+        <h4>所有可用书籍（本地数据，{{ books.length }}本）:</h4>
+        <ul class="debug-books-list">
+          <li v-for="book in books" :key="book.id">
+            {{ book.title }} (ID: {{ book.id }})
+          </li>
+        </ul>
       </div>
       
       <!-- 加载状态显示 -->
@@ -85,46 +131,30 @@
         <p>正在加载商品数据...</p>
       </div>
       
+      <!-- 搜索无结果状态 -->
+      <div v-else-if="isSearching && filteredBooks.length === 0" class="empty-state">
+        <el-icon><InfoFilled /></el-icon>
+        <p class="empty-text">未找到匹配"{{ searchKeyword }}"的书籍</p>
+        <el-button type="primary" @click="resetSearch">返回全部书籍</el-button>
+      </div>
+      
       <!-- 空状态显示 -->
       <div v-else-if="books.length === 0" class="empty-state">
         <img :src="defaultCover" alt="empty state" class="empty-icon">
         <p class="empty-text">暂无书籍，请添加新书籍</p>
         <!-- 移除了重复的添加书籍按钮 -->
       </div>
-
-      <div v-else>
-        <!-- 特殊商品区域 -->
-        <div v-if="specialBooks.length > 0" class="special-books-section">
-          <h2 class="section-title">特别推荐</h2>
-          <div class="book-grid">
-            <div v-for="book in specialBooks" :key="book.id" class="book-item special-book-item">
-              <div class="book-cover">
-                <img :src="book.cover || defaultCover" alt="book cover">
-                <div class="cover-overlay" @click="goToDetail(book.id)"></div>
-              </div>
-              <div class="book-title">{{ book.title }}</div>
-              <div class="special-tag">特色</div>
-              <div class="book-actions" v-if="role === 'admin'">
-                <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
-              </div>
-            </div>
+      
+      <!-- 书籍列表 -->
+      <div v-else class="book-grid">
+        <div v-for="book in sortedBooks" :key="book.id" class="book-item">
+          <div class="book-cover">
+            <img :src="book.cover || defaultCover" alt="book cover">
+            <div class="cover-overlay" @click="goToDetail(book.id)"></div>
           </div>
-        </div>
-        
-        <!-- 普通书籍区域 -->
-        <div class="regular-books-section">
-          <h2 class="section-title">全部书籍</h2>
-          <div class="book-grid">
-            <div v-for="book in regularBooks" :key="book.id" class="book-item">
-              <div class="book-cover">
-                <img :src="book.cover || defaultCover" alt="book cover">
-                <div class="cover-overlay" @click="goToDetail(book.id)"></div>
-              </div>
-              <div class="book-title">{{ book.title }}</div>
-              <div class="book-actions" v-if="role === 'admin'">
-                <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
-              </div>
-            </div>
+          <div class="book-title">{{ book.title }}</div>
+          <div class="book-actions" v-if="role === 'admin'">
+            <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
           </div>
         </div>
       </div>
@@ -136,8 +166,8 @@
 import { ref, onMounted, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, Search } from '@element-plus/icons-vue'
-import { getListInfo, deleteInfo, type Specification } from '../../api/Book/products'
+import { Loading, Search, InfoFilled, SortUp, SortDown } from '@element-plus/icons-vue'
+import { getListInfo, deleteInfo, searchBooks as apiSearchBooks, type Specification } from '../../api/Book/products'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
 // 添加loading状态
@@ -158,23 +188,41 @@ interface Product {
 
 const books = ref<Product[]>([])
 const role = ref(localStorage.getItem('role') || '')
+const searchKeyword = ref('')
+const filteredBooks = ref<Product[]>([])
+const isSearching = ref(false)
 
-// 定义特殊商品ID列表
-const specialBookIds = [
-  "dcaf11e7-c1a8-42c7-a51e-bc6ddb1f2628",
-  "60300a88-8def-4dad-ba5d-6bbb668e6f27",
-  "fc3eb463-913d-4645-bff5-a3607a901e43"
-]
+// 添加排序相关状态
+const sortBy = ref<'title' | 'price' | null>(null)
+const sortDirection = ref<'asc' | 'desc'>('asc')
 
-// 计算特殊商品和普通商品
-const specialBooks = computed(() => {
-  return books.value.filter(book => specialBookIds.includes(book.id))
+// 排序后的书籍列表计算属性
+const sortedBooks = computed(() => {
+  const booksToSort = isSearching.value ? filteredBooks.value : books.value
+  
+  if (!sortBy.value) {
+    return booksToSort // 如果没有排序，则返回原始列表
+  }
+  
+  return [...booksToSort].sort((a, b) => {
+    let comparison = 0
+    
+    if (sortBy.value === 'title') {
+      // 按书名排序（字符串比较）
+      const titleA = (a.title || '').toLowerCase()
+      const titleB = (b.title || '').toLowerCase()
+      comparison = titleA.localeCompare(titleB)
+    } else if (sortBy.value === 'price') {
+      // 按价格排序（数字比较）
+      comparison = (a.price || 0) - (b.price || 0)
+    }
+    
+    // 根据排序方向调整结果
+    return sortDirection.value === 'asc' ? comparison : -comparison
+  })
 })
 
-const regularBooks = computed(() => {
-  return books.value.filter(book => !specialBookIds.includes(book.id))
-})
-
+// 在组件挂载时输出一些调试信息
 console.log('ProductList组件已挂载')
 console.log('当前角色:', role.value)
 console.log('当前路由:', router.currentRoute.value.path)
@@ -275,57 +323,101 @@ const clearAllBooks = async () => {
   }
 }
 
-const searchQuery = ref('')
-const sortOption = ref('default')
-const originalBooks = ref<Product[]>([])
+// 添加调试相关状态，这些在模板中使用但之前未定义
+const debugMode = ref(false) // 默认关闭调试模式
+const showDebugDetails = ref(false)
+const apiResponse = ref<any>(null)
 
-// 处理搜索逻辑
-const handleSearch = () => {
-  if (!searchQuery.value) {
-    books.value = [...originalBooks.value]
-  } else {
-    const query = searchQuery.value.toLowerCase()
-    books.value = originalBooks.value.filter(book => 
-      book.title.toLowerCase().includes(query)
-    )
-  }
-  // 重新应用排序
-  handleSort()
+// 切换显示调试详情
+const toggleDebugDetails = () => {
+  showDebugDetails.value = !showDebugDetails.value
 }
 
-// 处理排序逻辑
-const handleSort = () => {
-  if (sortOption.value === 'default') {
-    // 不做额外排序
+const searchBooks = async () => {
+  if (!searchKeyword.value.trim()) {
+    resetSearch()
     return
   }
   
-  const [field, direction] = sortOption.value.split('-')
+  loading.value = true
+  console.log('开始搜索，关键字:', searchKeyword.value)
   
-  books.value.sort((a, b) => {
-    if (field === 'price') {
-      return direction === 'asc' ? a.price - b.price : b.price - a.price
-    } else if (field === 'rate') {
-      return b.rate - a.rate
-    } else if (field === 'title') {
-      // 添加字典序排序
-      const titleA = a.title.toLowerCase();
-      const titleB = b.title.toLowerCase();
-      if (direction === 'asc') {
-        return titleA.localeCompare(titleB);
-      } else {
-        return titleB.localeCompare(titleA);
+  try {
+    // 修改：简化API调用，只使用关键字参数，避免可能的参数错误
+    const res = await apiSearchBooks(searchKeyword.value)
+    console.log('搜索API完整响应:', res)
+    apiResponse.value = res.data
+    
+    if (res.data && res.data.code === 200) {
+      let searchData = res.data.data
+      
+      // 打印更详细的内容，帮助排查
+      console.log('搜索成功，返回数据结构:', {
+        dataType: typeof searchData,
+        isArray: Array.isArray(searchData),
+        dataKeys: searchData ? Object.keys(searchData) : 'null',
+        data: searchData
+      })
+      
+      // 处理分页数据结构
+      if (searchData && typeof searchData === 'object') {
+        if (searchData.content && Array.isArray(searchData.content)) {
+          console.log('检测到分页数据结构，提取content数组')
+          searchData = searchData.content
+        }
       }
+      
+      if (Array.isArray(searchData)) {
+        filteredBooks.value = searchData.filter(book => book && book.id && book.id !== 'undefined')
+        console.log('过滤后的搜索结果:', filteredBooks.value)
+        isSearching.value = true
+        
+        // 如果API返回空结果，尝试本地搜索
+        if (filteredBooks.value.length === 0) {
+          console.log('API返回空结果，尝试本地搜索')
+          localSearchBooks()
+        }
+      } else {
+        console.error('API返回的搜索数据不是有效数组:', searchData)
+        filteredBooks.value = []
+        isSearching.value = true
+        ElMessage.warning('搜索结果格式不符合预期，尝试本地搜索')
+        localSearchBooks()
+      }
+    } else {
+      console.error('搜索API返回错误:', res.data)
+      ElMessage.error(res.data?.msg || '搜索失败，尝试本地搜索')
+      localSearchBooks()
     }
-    return 0
-  })
+  } catch (error) {
+    console.error('搜索时发生异常:', error)
+    // 这里不显示错误消息，直接使用本地搜索
+    console.log('API搜索失败，切换到本地搜索')
+    localSearchBooks()
+  } finally {
+    loading.value = false
+  }
 }
 
-// 重置所有筛选条件
-const resetFilters = () => {
-  searchQuery.value = ''
-  sortOption.value = 'default'
-  books.value = [...originalBooks.value]
+// 添加本地搜索函数
+const localSearchBooks = () => {
+  const keyword = searchKeyword.value.toLowerCase().trim()
+  console.log('执行本地搜索，关键字:', keyword)
+  
+  filteredBooks.value = books.value.filter(book => {
+    return (book.title && book.title.toLowerCase().includes(keyword)) || 
+           (book.description && book.description.toLowerCase().includes(keyword))
+  })
+  
+  console.log('本地搜索结果数量:', filteredBooks.value.length)
+  isSearching.value = true
+}
+
+const resetSearch = () => {
+  searchKeyword.value = ''
+  isSearching.value = false
+  filteredBooks.value = []
+  resetSort() // 重置排序状态
 }
 
 const fetchBooks = async () => {
@@ -366,7 +458,6 @@ const fetchBooks = async () => {
       
       // 确保books是数组
       if (Array.isArray(booksData)) {
-        // 过滤掉没有有效ID的书籍
         books.value = booksData.filter(book => book && book.id && book.id !== 'undefined')
         // 保存一份原始数据，用于搜索和排序
         originalBooks.value = [...books.value]
@@ -380,6 +471,11 @@ const fetchBooks = async () => {
         }
         
         console.log('处理后的书籍列表:', books.value)
+        
+        // 重置搜索状态
+        if (isSearching.value) {
+          resetSearch()
+        }
       } else {
         console.error('API返回的数据不是有效数组:', booksData)
         books.value = []
@@ -412,6 +508,24 @@ const fetchBooks = async () => {
   } finally {
     loading.value = false
     console.log('书籍列表数据加载完成')
+  }
+}
+
+// 重置排序
+const resetSort = () => {
+  sortBy.value = null
+  sortDirection.value = 'asc'
+}
+
+// 切换排序方式
+const toggleSort = (field: 'title' | 'price') => {
+  if (sortBy.value === field) {
+    // 如果已经按此字段排序，则切换排序方向
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    // 如果是新的排序字段，则设置字段并默认使用升序
+    sortBy.value = field
+    sortDirection.value = 'asc'
   }
 }
 
@@ -454,6 +568,17 @@ onActivated(() => {
   flex: 1;
   padding: 20px;
   background-color: #faf3e0;
+}
+
+.search-container {
+  margin: 20px auto;
+  max-width: 600px;
+  display: flex;
+  justify-content: center;
+}
+
+.search-input {
+  width: 100%;
 }
 
 .empty-state {
@@ -565,46 +690,46 @@ onActivated(() => {
   color: #ff4400;
 }
 
-.section-title {
-  color: #ff4400;
-  margin: 30px 0 15px 20px;
-  font-size: 1.5rem;
-  border-left: 4px solid #ff4400;
-  padding-left: 10px;
+/* 添加调试面板样式 */
+.debug-panel {
+  margin: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f9f9f9;
 }
 
-.special-books-section {
-  margin-bottom: 30px;
+.debug-details {
+  margin-top: 10px;
+  padding: 10px;
+  background-color: #eee;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 300px;
 }
 
-.special-book-item {
-  position: relative;
-  border: 2px solid #ff4400;
+.debug-books-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 10px;
+  background-color: #fff;
+  border-radius: 4px;
 }
 
-.special-tag {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background-color: #ff4400;
-  color: white;
-  padding: 2px 8px;
-  font-size: 0.8rem;
-  border-bottom-left-radius: 8px;
-}
-
-.search-sort-area {
+/* 添加排序按钮样式 */
+.sort-container {
+  margin: 10px auto 20px;
+  max-width: 600px;
   display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  padding: 0 20px;
-  margin-bottom: 10px;
 }
 
-.search-input {
-  flex: 1;
-}
-
-.sort-select {
-  width: 150px;
+.sort-label {
+  color: #666;
+  font-size: 14px;
+  margin-right: 10px;
 }
 </style>

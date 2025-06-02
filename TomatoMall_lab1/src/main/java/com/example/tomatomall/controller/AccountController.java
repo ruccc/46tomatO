@@ -1,16 +1,17 @@
 package com.example.tomatomall.controller;
 
-import com.example.tomatomall.po.Account;
 import com.example.tomatomall.service.AccountService;
 import com.example.tomatomall.vo.AccountVO;
 import com.example.tomatomall.vo.Response;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 
 
 @RestController
+@Slf4j
 @RequestMapping("/api/accounts")
 public class AccountController {
 
