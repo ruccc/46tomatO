@@ -54,6 +54,31 @@
       <!-- 清晰标识这是商品列表页 -->
       <h1 class="page-title">商品列表页面</h1>
       
+      <!-- 搜索和排序区域 -->
+      <div class="search-sort-area">
+        <el-input
+          v-model="searchQuery"
+          placeholder="请输入书名关键词"
+          class="search-input"
+          @input="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        
+        <el-select v-model="sortOption" placeholder="排序方式" @change="handleSort" class="sort-select">
+          <el-option label="默认排序" value="default"></el-option>
+          <el-option label="价格从低到高" value="price-asc"></el-option>
+          <el-option label="价格从高到低" value="price-desc"></el-option>
+          <el-option label="评分从高到低" value="rate-desc"></el-option>
+          <el-option label="书名字典序升序" value="title-asc"></el-option>
+          <el-option label="书名字典序降序" value="title-desc"></el-option>
+        </el-select>
+        
+        <el-button type="primary" @click="resetFilters">重置</el-button>
+      </div>
+      
       <!-- 加载状态显示 -->
       <div v-if="loading" class="loading-state">
         <el-icon class="is-loading"><Loading /></el-icon>
@@ -66,17 +91,40 @@
         <p class="empty-text">暂无书籍，请添加新书籍</p>
         <!-- 移除了重复的添加书籍按钮 -->
       </div>
-      
-      <!-- 书籍列表 -->
-      <div v-else class="book-grid">
-        <div v-for="book in books" :key="book.id" class="book-item">
-          <div class="book-cover">
-            <img :src="book.cover || defaultCover" alt="book cover">
-            <div class="cover-overlay" @click="goToDetail(book.id)"></div>
+
+      <div v-else>
+        <!-- 特殊商品区域 -->
+        <div v-if="specialBooks.length > 0" class="special-books-section">
+          <h2 class="section-title">特别推荐</h2>
+          <div class="book-grid">
+            <div v-for="book in specialBooks" :key="book.id" class="book-item special-book-item">
+              <div class="book-cover">
+                <img :src="book.cover || defaultCover" alt="book cover">
+                <div class="cover-overlay" @click="goToDetail(book.id)"></div>
+              </div>
+              <div class="book-title">{{ book.title }}</div>
+              <div class="special-tag">特色</div>
+              <div class="book-actions" v-if="role === 'admin'">
+                <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
+              </div>
+            </div>
           </div>
-          <div class="book-title">{{ book.title }}</div>
-          <div class="book-actions" v-if="role === 'admin'">
-            <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
+        </div>
+        
+        <!-- 普通书籍区域 -->
+        <div class="regular-books-section">
+          <h2 class="section-title">全部书籍</h2>
+          <div class="book-grid">
+            <div v-for="book in regularBooks" :key="book.id" class="book-item">
+              <div class="book-cover">
+                <img :src="book.cover || defaultCover" alt="book cover">
+                <div class="cover-overlay" @click="goToDetail(book.id)"></div>
+              </div>
+              <div class="book-title">{{ book.title }}</div>
+              <div class="book-actions" v-if="role === 'admin'">
+                <el-button type="danger" size="small" @click="deleteBook(book.id)">删除</el-button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -85,10 +133,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onActivated } from 'vue'
+import { ref, onMounted, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, Search } from '@element-plus/icons-vue'
 import { getListInfo, deleteInfo, type Specification } from '../../api/Book/products'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 
@@ -111,7 +159,22 @@ interface Product {
 const books = ref<Product[]>([])
 const role = ref(localStorage.getItem('role') || '')
 
-// 在组件挂载时输出一些调试信息
+// 定义特殊商品ID列表
+const specialBookIds = [
+  "dcaf11e7-c1a8-42c7-a51e-bc6ddb1f2628",
+  "60300a88-8def-4dad-ba5d-6bbb668e6f27",
+  "fc3eb463-913d-4645-bff5-a3607a901e43"
+]
+
+// 计算特殊商品和普通商品
+const specialBooks = computed(() => {
+  return books.value.filter(book => specialBookIds.includes(book.id))
+})
+
+const regularBooks = computed(() => {
+  return books.value.filter(book => !specialBookIds.includes(book.id))
+})
+
 console.log('ProductList组件已挂载')
 console.log('当前角色:', role.value)
 console.log('当前路由:', router.currentRoute.value.path)
@@ -212,6 +275,59 @@ const clearAllBooks = async () => {
   }
 }
 
+const searchQuery = ref('')
+const sortOption = ref('default')
+const originalBooks = ref<Product[]>([])
+
+// 处理搜索逻辑
+const handleSearch = () => {
+  if (!searchQuery.value) {
+    books.value = [...originalBooks.value]
+  } else {
+    const query = searchQuery.value.toLowerCase()
+    books.value = originalBooks.value.filter(book => 
+      book.title.toLowerCase().includes(query)
+    )
+  }
+  // 重新应用排序
+  handleSort()
+}
+
+// 处理排序逻辑
+const handleSort = () => {
+  if (sortOption.value === 'default') {
+    // 不做额外排序
+    return
+  }
+  
+  const [field, direction] = sortOption.value.split('-')
+  
+  books.value.sort((a, b) => {
+    if (field === 'price') {
+      return direction === 'asc' ? a.price - b.price : b.price - a.price
+    } else if (field === 'rate') {
+      return b.rate - a.rate
+    } else if (field === 'title') {
+      // 添加字典序排序
+      const titleA = a.title.toLowerCase();
+      const titleB = b.title.toLowerCase();
+      if (direction === 'asc') {
+        return titleA.localeCompare(titleB);
+      } else {
+        return titleB.localeCompare(titleA);
+      }
+    }
+    return 0
+  })
+}
+
+// 重置所有筛选条件
+const resetFilters = () => {
+  searchQuery.value = ''
+  sortOption.value = 'default'
+  books.value = [...originalBooks.value]
+}
+
 const fetchBooks = async () => {
   loading.value = true
   console.log('开始获取商品列表数据')
@@ -252,6 +368,17 @@ const fetchBooks = async () => {
       if (Array.isArray(booksData)) {
         // 过滤掉没有有效ID的书籍
         books.value = booksData.filter(book => book && book.id && book.id !== 'undefined')
+        // 保存一份原始数据，用于搜索和排序
+        originalBooks.value = [...books.value]
+        
+        // 检查特殊商品是否在返回的数据中
+        const foundSpecialBooks = specialBookIds.filter(id => 
+          books.value.some(book => book.id === id)
+        )
+        if (foundSpecialBooks.length < specialBookIds.length) {
+          console.log('警告：部分特殊商品未在数据库中找到')
+        }
+        
         console.log('处理后的书籍列表:', books.value)
       } else {
         console.error('API返回的数据不是有效数组:', booksData)
@@ -436,5 +563,48 @@ onActivated(() => {
   font-size: 3rem;
   margin-bottom: 20px;
   color: #ff4400;
+}
+
+.section-title {
+  color: #ff4400;
+  margin: 30px 0 15px 20px;
+  font-size: 1.5rem;
+  border-left: 4px solid #ff4400;
+  padding-left: 10px;
+}
+
+.special-books-section {
+  margin-bottom: 30px;
+}
+
+.special-book-item {
+  position: relative;
+  border: 2px solid #ff4400;
+}
+
+.special-tag {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #ff4400;
+  color: white;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  border-bottom-left-radius: 8px;
+}
+
+.search-sort-area {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px;
+  margin-bottom: 10px;
+}
+
+.search-input {
+  flex: 1;
+}
+
+.sort-select {
+  width: 150px;
 }
 </style>
