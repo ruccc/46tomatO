@@ -112,9 +112,25 @@
 
           <!-- 订单金额 -->
           <div class="order-summary">
-            <div class="order-amount">
-              <span>订单总计：</span>
-              <span class="total-price">¥{{ totalAmount.toFixed(2) }}</span>
+            <div class="order-amount-details">
+              <div class="amount-row">
+                <span>商品总额：</span>
+                <span>¥{{ totalAmount.toFixed(2) }}</span>
+              </div>
+              
+              <!-- 会员折扣信息 -->
+              <div class="amount-row discount-row" v-if="memberLevel > 0">
+                <span>会员折扣：</span>
+                <span class="discount-amount">-¥{{ discountAmount.toFixed(2) }}</span>
+                <el-tag size="small" type="danger" class="discount-tag">
+                  {{ getMemberLevelName(memberLevel) }} {{ getDiscountByLevel(memberLevel) }}折
+                </el-tag>
+              </div>
+              
+              <div class="amount-row final-amount">
+                <span>实付金额：</span>
+                <span class="total-price">¥{{ finalAmount.toFixed(2) }}</span>
+              </div>
             </div>
             <el-button type="primary" @click="submitOrder" :loading="submitting">
               提交订单
@@ -141,6 +157,9 @@ const submitting = ref(false)
 const checkoutItems = ref<CartItem[]>([])
 const addressFormRef = ref<FormInstance>()
 const paymentMethod = ref('ALIPAY')
+
+// 会员等级相关
+const memberLevel = ref(0)
 
 // 收货地址表单
 const addressForm = reactive<ShippingAddress>({
@@ -177,6 +196,40 @@ const totalAmount = computed(() => {
   }, 0)
 })
 
+// 计算折扣金额
+const discountAmount = computed(() => {
+  if (memberLevel.value === 0) return 0
+  const discount = (10 - getDiscountByLevel(memberLevel.value)) / 10
+  return totalAmount.value * discount
+})
+
+// 计算最终金额（应用折扣后）
+const finalAmount = computed(() => {
+  if (memberLevel.value === 0) return totalAmount.value
+  const discount = getDiscountByLevel(memberLevel.value) / 10
+  return totalAmount.value * discount
+})
+
+// 根据会员等级获取折扣
+const getDiscountByLevel = (level: number): number => {
+  switch (level) {
+    case 1: return 9
+    case 2: return 8
+    case 3: return 7
+    default: return 10 // 非会员无折扣
+  }
+}
+
+// 获取会员等级名称
+const getMemberLevelName = (level: number): string => {
+  switch (level) {
+    case 1: return '一级会员'
+    case 2: return '二级会员'
+    case 3: return '三级会员'
+    default: return '普通用户'
+  }
+}
+
 // 获取结算商品数据
 const fetchCheckoutItems = async () => {
   loading.value = true
@@ -207,6 +260,21 @@ const fetchCheckoutItems = async () => {
     } else {
       ElMessage.error(res.data?.msg || '获取结算商品数据失败')
     }
+
+    // 获取会员信息
+    const memberInfoStr = localStorage.getItem('checkoutMemberInfo')
+    if (memberInfoStr) {
+      try {
+        const memberInfo = JSON.parse(memberInfoStr)
+        memberLevel.value = memberInfo.memberLevel || 0
+      } catch (e) {
+        console.error('解析会员信息失败:', e)
+      }
+    } else {
+      // 如果没有从购物车传递会员信息，尝试从localStorage直接读取
+      const storedMemberLevel = localStorage.getItem('memberLevel')
+      memberLevel.value = storedMemberLevel ? parseInt(storedMemberLevel) : 0
+    }
   } catch (error) {
     console.error('获取结算商品数据时发生错误:', error)
     ElMessage.error('获取结算商品数据失败')
@@ -216,7 +284,7 @@ const fetchCheckoutItems = async () => {
   }
 }
 
-// 提交订单
+// 提交订单 - 确保会员折扣信息被正确传递给后端API
 const submitOrder = async () => {
   if (checkoutItems.value.length === 0) {
     ElMessage.warning('没有选择商品，请返回购物车选择商品')
@@ -232,7 +300,12 @@ const submitOrder = async () => {
         const checkoutRequest = {
           cartItemIds: checkoutItems.value.map(item => item.cartItemId),
           shipping_address: addressForm,
-          payment_method: paymentMethod.value
+          payment_method: paymentMethod.value,
+          // 确保传递会员折扣相关信息
+          memberLevel: memberLevel.value,
+          originalAmount: totalAmount.value,
+          discountAmount: discountAmount.value,
+          finalAmount: finalAmount.value
         }
 
         const res = await checkout(checkoutRequest)
@@ -240,8 +313,9 @@ const submitOrder = async () => {
           const orderId = res.data.data.orderId
           ElMessage.success('订单创建成功，正在前往支付')
           
-          // 清除localStorage中的结算商品数据
+          // 清除localStorage中的结算商品数据和折扣信息
           localStorage.removeItem('checkoutItems')
+          localStorage.removeItem('checkoutMemberInfo')
           
           // 跳转到支付页面
           router.push(`/pay/${orderId}`)
@@ -357,11 +431,37 @@ onMounted(() => {
   margin: 20px 0;
 }
 
+/* 订单金额相关样式 */
 .order-summary {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   margin-top: 30px;
+}
+
+.order-amount-details {
+  margin-right: 20px;
+}
+
+.amount-row {
+  margin-bottom: 5px;
+}
+
+.discount-row {
+  color: #ff4400;
+}
+
+.discount-amount {
+  margin-right: 8px;
+}
+
+.discount-tag {
+  margin-left: 5px;
+}
+
+.final-amount {
+  margin-top: 10px;
+  font-weight: bold;
 }
 
 .order-amount {

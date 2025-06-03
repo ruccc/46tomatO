@@ -88,7 +88,24 @@
           <div class="cart-footer">
             <div class="cart-total">
               <span>已选商品 {{ selectedItems.length }} 件</span>
-              <span class="total-amount">总计：¥{{ totalAmount.toFixed(2) }}</span>
+              <!-- 添加会员折扣信息显示 -->
+              <div class="price-details">
+                <div class="price-row">
+                  <span>商品总额：</span>
+                  <span>¥{{ totalAmount.toFixed(2) }}</span>
+                </div>
+                <div class="price-row discount-row" v-if="memberLevel > 0">
+                  <span>会员折扣：</span>
+                  <span class="discount-price">-¥{{ discountAmount.toFixed(2) }}</span>
+                  <el-tag size="small" type="danger" class="discount-tag">
+                    {{ getMemberLevelName() }} {{ getDiscountByLevel(memberLevel) }}折
+                  </el-tag>
+                </div>
+                <div class="price-row final-amount">
+                  <span>实付金额：</span>
+                  <span class="total-amount">¥{{ finalAmount.toFixed(2) }}</span>
+                </div>
+              </div>
             </div>
             <el-button type="primary" @click="goToCheckout" :disabled="selectedItems.length === 0">
               去结算
@@ -113,9 +130,53 @@ const router = useRouter()
 const loading = ref(true)
 const cartItems = ref<CartItem[]>([])
 const selectedItems = ref<CartItem[]>([])
+const memberLevel = ref(0)
+
+// 计算原始总金额
 const totalAmount = computed(() => {
   return selectedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
 })
+
+// 计算折扣金额
+const discountAmount = computed(() => {
+  if (memberLevel.value === 0) return 0
+  const discount = (10 - getDiscountByLevel(memberLevel.value)) / 10
+  return totalAmount.value * discount
+})
+
+// 计算最终金额（应用折扣后）
+const finalAmount = computed(() => {
+  if (memberLevel.value === 0) return totalAmount.value
+  const discount = getDiscountByLevel(memberLevel.value) / 10
+  return totalAmount.value * discount
+})
+
+// 根据会员等级获取折扣
+const getDiscountByLevel = (level: number): number => {
+  switch (level) {
+    case 1: return 9
+    case 2: return 8
+    case 3: return 7
+    default: return 10 // 非会员无折扣
+  }
+}
+
+// 获取会员等级名称
+const getMemberLevelName = (): string => {
+  switch (memberLevel.value) {
+    case 1: return '一级会员'
+    case 2: return '二级会员'
+    case 3: return '三级会员'
+    default: return '普通用户'
+  }
+}
+
+// 获取用户会员信息
+const fetchUserMemberInfo = () => {
+  // 从本地存储获取会员等级
+  const storedMemberLevel = localStorage.getItem('memberLevel')
+  memberLevel.value = storedMemberLevel ? parseInt(storedMemberLevel) : 0
+}
 
 // 获取购物车数据
 const fetchCartItems = async () => {
@@ -217,11 +278,21 @@ const goToCheckout = () => {
   
   // 将选中的商品ID存储到localStorage中，用于结算页面获取
   localStorage.setItem('checkoutItems', JSON.stringify(selectedItems.value.map(item => item.cartItemId)))
+  
+  // 存储会员折扣信息
+  localStorage.setItem('checkoutMemberInfo', JSON.stringify({
+    memberLevel: memberLevel.value,
+    discount: getDiscountByLevel(memberLevel.value) / 10,
+    originalAmount: totalAmount.value,
+    finalAmount: finalAmount.value
+  }))
+  
   router.push('/checkout')
 }
 
 onMounted(() => {
   fetchCartItems()
+  fetchUserMemberInfo() // 添加获取会员信息
 })
 </script>
 
@@ -323,6 +394,31 @@ onMounted(() => {
 
 .cart-total {
   margin-right: 20px;
+}
+
+/* 添加价格详情样式 */
+.price-details {
+  margin-top: 10px;
+}
+
+.price-row {
+  margin-bottom: 5px;
+}
+
+.discount-row {
+  color: #ff4400;
+}
+
+.discount-price {
+  margin-right: 5px;
+}
+
+.discount-tag {
+  margin-left: 5px;
+}
+
+.final-amount {
+  font-weight: bold;
 }
 
 .total-amount {
