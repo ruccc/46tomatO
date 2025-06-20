@@ -123,8 +123,9 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete } from '@element-plus/icons-vue'
 import { getCartItems, removeFromCart, updateCartQuantity } from '../../api/Book/cart'
-import type { CartItem } from '../../api/Book/cart' // 修改为仅类型导入
+import type { CartItem } from '../../api/Book/cart'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
+import { getDiscountRateByLevel, getMemberLevelName } from '../../utils/membershipUtils'
 
 const router = useRouter()
 const loading = ref(true)
@@ -137,39 +138,28 @@ const totalAmount = computed(() => {
   return selectedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
 })
 
-// 计算折扣金额
-const discountAmount = computed(() => {
-  if (memberLevel.value === 0) return 0
-  const discount = (10 - getDiscountByLevel(memberLevel.value)) / 10
-  return totalAmount.value * discount
-})
-
-// 计算最终金额（应用折扣后）
-const finalAmount = computed(() => {
-  if (memberLevel.value === 0) return totalAmount.value
-  const discount = getDiscountByLevel(memberLevel.value) / 10
-  return totalAmount.value * discount
-})
-
 // 根据会员等级获取折扣
 const getDiscountByLevel = (level: number): number => {
   switch (level) {
-    case 1: return 9
-    case 2: return 8
-    case 3: return 7
-    default: return 10 // 非会员无折扣
+    case 1: return 9  // 9折
+    case 2: return 8  // 8折
+    case 3: return 7  // 7折
+    default: return 10 // 无折扣
   }
 }
 
-// 获取会员等级名称
-const getMemberLevelName = (): string => {
-  switch (memberLevel.value) {
-    case 1: return '一级会员'
-    case 2: return '二级会员'
-    case 3: return '三级会员'
-    default: return '普通用户'
-  }
-}
+// 计算折扣金额
+const discountAmount = computed(() => {
+  if (memberLevel.value === 0) return 0
+  // 计算折扣金额 = 原价 * (1 - 折扣率)
+  return totalAmount.value * (1 - getDiscountRateByLevel(memberLevel.value))
+})
+
+// 计算最终金额
+const finalAmount = computed(() => {
+  // 最终金额 = 原价 * 折扣率
+  return totalAmount.value * getDiscountRateByLevel(memberLevel.value)
+})
 
 // 获取用户会员信息
 const fetchUserMemberInfo = () => {

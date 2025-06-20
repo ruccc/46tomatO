@@ -115,12 +115,12 @@
             <div class="order-amount-details">
               <div class="amount-row">
                 <span>商品总额：</span>
-                <span>¥{{ totalAmount.toFixed(2) }}</span>
+                <span>¥{{ originalTotal.toFixed(2) }}</span>
               </div>
               
               <!-- 会员折扣信息 -->
               <div class="amount-row discount-row" v-if="memberLevel > 0">
-                <span>会员折扣：</span>
+                <span>会员折扣 ({{ getMemberLevelName(memberLevel) }})：</span>
                 <span class="discount-amount">-¥{{ discountAmount.toFixed(2) }}</span>
                 <el-tag size="small" type="danger" class="discount-tag">
                   {{ getMemberLevelName(memberLevel) }} {{ getDiscountByLevel(memberLevel) }}折
@@ -143,13 +143,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
 import { getCartItems, checkout } from '../../api/Book/cart'
 import type { CartItem, ShippingAddress } from '../../api/Book/cart'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
+import { getDiscountRateByLevel, getMemberLevelName } from '../../utils/membershipUtils'
 
 const router = useRouter()
 const loading = ref(true)
@@ -158,7 +158,7 @@ const checkoutItems = ref<CartItem[]>([])
 const addressFormRef = ref<FormInstance>()
 const paymentMethod = ref('ALIPAY')
 
-// 会员等级相关
+// 会员等级和折扣相关
 const memberLevel = ref(0)
 
 // 收货地址表单
@@ -189,8 +189,14 @@ const addressRules = reactive<FormRules>({
   ]
 })
 
-// 计算订单总金额
-const totalAmount = computed(() => {
+// 获取会员等级信息
+const fetchUserMemberInfo = () => {
+  const storedLevel = localStorage.getItem('memberLevel')
+  memberLevel.value = storedLevel ? parseInt(storedLevel) : 0
+}
+
+// 计算原价总额
+const originalTotal = computed(() => {
   return checkoutItems.value.reduce((sum, item) => {
     return sum + item.price * item.quantity
   }, 0)
@@ -199,36 +205,13 @@ const totalAmount = computed(() => {
 // 计算折扣金额
 const discountAmount = computed(() => {
   if (memberLevel.value === 0) return 0
-  const discount = (10 - getDiscountByLevel(memberLevel.value)) / 10
-  return totalAmount.value * discount
+  return originalTotal.value * (1 - getDiscountRateByLevel(memberLevel.value))
 })
 
 // 计算最终金额（应用折扣后）
 const finalAmount = computed(() => {
-  if (memberLevel.value === 0) return totalAmount.value
-  const discount = getDiscountByLevel(memberLevel.value) / 10
-  return totalAmount.value * discount
+  return originalTotal.value * getDiscountRateByLevel(memberLevel.value)
 })
-
-// 根据会员等级获取折扣
-const getDiscountByLevel = (level: number): number => {
-  switch (level) {
-    case 1: return 9
-    case 2: return 8
-    case 3: return 7
-    default: return 10 // 非会员无折扣
-  }
-}
-
-// 获取会员等级名称
-const getMemberLevelName = (level: number): string => {
-  switch (level) {
-    case 1: return '一级会员'
-    case 2: return '二级会员'
-    case 3: return '三级会员'
-    default: return '普通用户'
-  }
-}
 
 // 获取结算商品数据
 const fetchCheckoutItems = async () => {
@@ -303,7 +286,7 @@ const submitOrder = async () => {
           payment_method: paymentMethod.value,
           // 确保传递会员折扣相关信息
           memberLevel: memberLevel.value,
-          originalAmount: totalAmount.value,
+          originalAmount: originalTotal.value,
           discountAmount: discountAmount.value,
           finalAmount: finalAmount.value
         }
@@ -336,6 +319,7 @@ const submitOrder = async () => {
 
 onMounted(() => {
   fetchCheckoutItems()
+  fetchUserMemberInfo()
 })
 </script>
 
