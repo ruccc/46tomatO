@@ -157,11 +157,10 @@
 
     <!-- 新建会话对话框 -->
     <el-dialog title="新建会话" v-model="newMessageDialogVisible" width="400px">
-      <el-form :model="newConversationForm" label-width="80px">
-        <el-form-item label="联系人">
+      <el-form :model="newConversationForm" label-width="80px">        <el-form-item label="联系人">
           <el-input 
             v-model="newConversationForm.receiverName" 
-            placeholder="请输入用户名"
+            placeholder="请输入用户ID（数字）"
             @blur="validateReceiver"
           />
           <div v-if="receiverError" class="error-text">{{ receiverError }}</div>
@@ -233,11 +232,31 @@ const selectedContact = computed(() => {
 
 // 获取当前用户信息
 const getCurrentUserId = () => {
+  // 先尝试从userInfo获取
   const userInfo = localStorage.getItem('userInfo')
   if (userInfo) {
-    return JSON.parse(userInfo).id
+    try {
+      const parsed = JSON.parse(userInfo)
+      if (parsed && parsed.id) {
+        return parsed.id
+      }
+    } catch (e) {
+      console.error('解析userInfo失败:', e)
+    }
   }
-  return localStorage.getItem('userId') || 1 // 临时默认值
+  
+  // 再尝试从userId获取
+  const userId = localStorage.getItem('userId')
+  if (userId && userId !== 'null' && userId !== 'undefined') {
+    return parseInt(userId)
+  }
+  
+  // 如果都没有，说明用户未登录，应该跳转到登录页
+  console.warn('用户未登录，无法获取用户ID')
+  ElMessage.error('请先登录')
+  // 这里可以添加跳转到登录页的逻辑
+  // router.push('/login')
+  return null
 }
 
 // 格式化时间
@@ -276,6 +295,10 @@ const loadContacts = async () => {
   contactsLoading.value = true
   try {
     const userId = getCurrentUserId()
+    if (!userId) {
+      console.error('无法获取用户ID，无法加载联系人列表')
+      return
+    }
     const response = await getContacts(userId)
     
     if (response.data && response.data.code === 200) {
@@ -331,6 +354,10 @@ const loadContacts = async () => {
 const loadUnreadCount = async () => {
   try {
     const userId = getCurrentUserId()
+    if (!userId) {
+      console.error('无法获取用户ID，无法加载未读消息数')
+      return
+    }
     const response = await getUnreadCount(userId)
     
     if (response.data && response.data.code === 200) {
@@ -464,10 +491,17 @@ const showNewMessageDialog = () => {
 // 验证接收者
 const validateReceiver = () => {
   if (!newConversationForm.receiverName) {
-    receiverError.value = '请输入用户名'
+    receiverError.value = '请输入用户ID'
     return false
   }
-  // 这里可以调用API验证用户是否存在
+  
+  // 验证是否为有效的数字ID
+  const receiverId = parseInt(newConversationForm.receiverName)
+  if (isNaN(receiverId) || receiverId <= 0) {
+    receiverError.value = '请输入有效的用户ID（正整数）'
+    return false
+  }
+  
   receiverError.value = ''
   return true
 }
@@ -477,11 +511,22 @@ const createNewConversation = async () => {
   if (!validateReceiver() || !newConversationForm.content) return
   
   try {
-    // 这里需要先根据用户名获取用户ID
-    // 暂时使用模拟的接收者ID
-    const receiverId = parseInt(newConversationForm.receiverName) || 2
-    
     const userId = getCurrentUserId()
+    if (!userId) {
+      ElMessage.error('请先登录')
+      return
+    }
+    
+    const receiverId = parseInt(newConversationForm.receiverName)
+    if (isNaN(receiverId)) {
+      ElMessage.error('请输入有效的用户ID')
+      return
+    }
+      if (receiverId === userId) {
+      ElMessage.error('不能给自己发送消息')
+      return
+    }
+    
     const messageData = {
       senderId: userId,
       receiverId,
@@ -513,6 +558,13 @@ const createNewConversation = async () => {
 
 // 生命周期
 onMounted(async () => {
+  // 调试信息：检查用户登录状态
+  console.log('=== 消息中心调试信息 ===')
+  console.log('localStorage.userInfo:', localStorage.getItem('userInfo'))
+  console.log('localStorage.userId:', localStorage.getItem('userId'))
+  console.log('getCurrentUserId():', getCurrentUserId())
+  console.log('========================')
+  
   await Promise.all([
     loadContacts(),
     loadUnreadCount()

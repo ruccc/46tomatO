@@ -106,8 +106,10 @@ export const getUnreadCountFromUser = (userId: number, senderId: number) => {
 
 // 标记消息为已读
 export const markAsRead = (userId: number, senderId: number) => {
-  return axios.post('/api/messages/mark-as-read', {
-    userId,
-    senderId
+  return axios.post('/api/messages/mark-as-read', null, {
+    params: {
+      userId,
+      senderId
+    }
   })
 }

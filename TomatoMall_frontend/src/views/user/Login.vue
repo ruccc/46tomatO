@@ -22,16 +22,28 @@ function handleLogin() {
   userLogin({
     username: username.value,
     password: password.value,
-  }).then(res => {
-    if (res.code === '200') {
+  }).then(res => {    if (res.code === '200') {
       ElMessage.success("登录成功！")
       const token = res.data
       localStorage.setItem('token', token)
       localStorage.setItem('username', username.value)
-
+      
       getUserDetail(username.value, token).then(userRes => {
+        console.log('getUserDetail 返回数据:', userRes.data) // 调试信息
+        
+        // 存储用户基本信息
         localStorage.setItem('name', userRes.data.name)
         localStorage.setItem('role', userRes.data.role)
+        
+        // 存储用户ID - 这是消息功能的关键！
+        localStorage.setItem('userId', userRes.data.id.toString())
+        
+        // 存储完整用户信息
+        localStorage.setItem('userInfo', JSON.stringify(userRes.data))
+        
+        console.log('localStorage 存储完成:')
+        console.log('- userId:', localStorage.getItem('userId'))
+        console.log('- userInfo:', localStorage.getItem('userInfo'))
         
         // 使用window.location.href进行页面刷新式跳转，而不是router.push
         // 显示加载提示

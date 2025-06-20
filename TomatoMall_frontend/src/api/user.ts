@@ -9,6 +9,7 @@ import type {AxiosResponse} from "axios";
 
 
 type  UserDetail = {
+    id: number,
     username: string,
     name: string,
     role: string;

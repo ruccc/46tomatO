@@ -91,17 +91,38 @@ const unreadMessageCount = ref(0)
 
 // 获取当前用户ID
 const getCurrentUserId = () => {
+  // 先尝试从userInfo获取
   const userInfo = localStorage.getItem('userInfo')
   if (userInfo) {
-    return JSON.parse(userInfo).id
+    try {
+      const parsed = JSON.parse(userInfo)
+      if (parsed && parsed.id) {
+        return parsed.id
+      }
+    } catch (e) {
+      console.error('解析userInfo失败:', e)
+    }
   }
-  return localStorage.getItem('userId') || 1 // 临时默认值
+  
+  // 再尝试从userId获取
+  const userId = localStorage.getItem('userId')
+  if (userId && userId !== 'null' && userId !== 'undefined') {
+    return parseInt(userId)
+  }
+  
+  // 如果都没有，说明用户未登录
+  console.warn('用户未登录，无法获取用户ID')
+  return null
 }
 
 // 加载未读消息数
 const loadUnreadMessageCount = async () => {
   try {
     const userId = getCurrentUserId()
+    if (!userId) {
+      console.error('无法获取用户ID，无法加载未读消息数')
+      return
+    }
     const response = await getUnreadCount(userId)
     
     if (response.data && response.data.code === 200) {
@@ -119,9 +140,15 @@ const updateTime = () => {
 
 // 组件挂载时
 onMounted(async () => {
-  console.log('Main组件已挂载')
+  console.log('=== Main组件调试信息 ===')
   console.log('当前用户:', username.value)
   console.log('当前路由:', router.currentRoute.value.path)
+  console.log('localStorage.token:', localStorage.getItem('token'))
+  console.log('localStorage.username:', localStorage.getItem('username'))
+  console.log('localStorage.userInfo:', localStorage.getItem('userInfo'))
+  console.log('localStorage.userId:', localStorage.getItem('userId'))
+  console.log('getCurrentUserId():', getCurrentUserId())
+  console.log('========================')
   
   // 如果没有token，跳转到登录页
   if (!localStorage.getItem('token')) {
@@ -146,7 +173,12 @@ const handleLogout = () => {
   localStorage.removeItem('token')
   localStorage.removeItem('role')
   localStorage.removeItem('username')
+  localStorage.removeItem('name')
+  localStorage.removeItem('userId')
+  localStorage.removeItem('userInfo')
   sessionStorage.clear()
+  
+  console.log('已清除所有用户数据')
   
   ElMessage.success('退出登录成功')
   // 跳转到登录页
