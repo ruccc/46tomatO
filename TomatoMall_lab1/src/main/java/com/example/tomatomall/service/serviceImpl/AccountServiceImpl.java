@@ -7,10 +7,12 @@ import com.example.tomatomall.service.AccountService;
 import com.example.tomatomall.util.SecurityUtil;
 import com.example.tomatomall.util.TokenUtil;
 import com.example.tomatomall.vo.AccountVO;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
+@Slf4j
 public class AccountServiceImpl implements AccountService {
     final
     AccountRepository accountRepository;
@@ -25,14 +27,16 @@ public class AccountServiceImpl implements AccountService {
         this.securityUtil = securityUtil;
         this.passwordEncoder = passwordEncoder;
         this.accountRepository = accountRepository;
-    }
-
-    @Override
+    }    @Override
     public AccountVO getAccountInfo(String username) throws TomatoException {
+        log.info("查找用户: {}", username);
         Account account = accountRepository.findByUsername(username);
+        log.info("查找结果: {}", account != null ? "找到用户" : "未找到用户");
         if (account == null) {
+            log.warn("用户不存在: {}", username);
             throw TomatoException.notFound();
         }
+        log.info("返回用户信息: id={}, username={}, name={}", account.getId(), account.getUsername(), account.getName());
         return account.toVO();
     }
 

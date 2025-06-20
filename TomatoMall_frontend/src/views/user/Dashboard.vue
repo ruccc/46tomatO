@@ -7,7 +7,7 @@
           <template #header>
             <div class="clearfix">
               <span>个人信息</span>
-              <el-button style="float: right; padding: 3px 0" type="text" @click="showEditForm">修改信息</el-button>
+              <el-button style="float: right; padding: 3px 0" type="primary" link @click="showEditForm">修改信息</el-button>
             </div>
           </template>
           <div class="user-profile">
@@ -21,17 +21,15 @@
             </div>
             <div class="user-info">
               <h3>{{ userInfo.name || '未设置姓名' }}</h3>
-              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>
-              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
+              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
               <p>手机: {{ userInfo.telephone || '未设置' }}</p>
               <!-- 添加地址信息 -->
               <p>地址: {{ userInfo.address || '未设置' }}</p>
-              <p>注册时间: {{ formatDate(userInfo.createTime || new Date()) }}</p>
               
               <!-- 添加会员身份显示 -->
               <div class="member-identity">
                 <span class="identity-label">会员等级:</span>
-                <el-tag :type="getMemberLevelTagType(memberLevel)" size="medium">
+                <el-tag :type="getMemberLevelTagType(memberLevel)" size="default">
                   {{ getMemberLevelName(memberLevel) }}
                 </el-tag>
               </div>
@@ -48,8 +46,7 @@
         <el-card class="box-card">
           <template #header>
             <div class="clearfix">
-              <span>会员信息</span>
-              <el-button style="float: right; padding: 3px 0; margin-left: 10px;" type="text" 
+              <span>会员信息</span>              <el-button style="float: right; padding: 3px 0; margin-left: 10px;" type="primary" link
                       @click="deleteMemberShip" v-if="memberInfo">取消会员</el-button>
             </div>
           </template>
@@ -131,18 +128,17 @@
           <template #header>
             <div class="clearfix">
               <span>历史订单</span>
-              <el-button style="float: right; padding: 3px 0" type="text" @click="viewAllOrders">查看全部</el-button>
+              <el-button style="float: right; padding: 3px 0" type="primary" link @click="viewAllOrders">查看全部</el-button>
             </div>
           </template>
-          
-          <el-table :data="recentOrders" stripe style="width: 100%">
-            <el-table-column prop="orderId" label="订单编号" width="180"></el-table-column>
-            <el-table-column prop="createTime" label="下单时间" width="160">
+            <el-table :data="recentOrders" stripe style="width: 100%">
+            <el-table-column prop="orderId" label="订单编号" width="200"></el-table-column>
+            <el-table-column prop="createTime" label="下单时间" width="200">
               <template #default="scope">
                 {{ formatDate(scope.row.createTime) }}
               </template>
             </el-table-column>
-            <el-table-column prop="totalAmount" label="订单金额" width="120">
+            <el-table-column prop="totalAmount" label="订单金额" width="200">
               <template #default="scope">
                 ¥{{ scope.row.totalAmount.toFixed(2) }}
               </template>
@@ -152,12 +148,6 @@
                 <el-tag :type="getOrderStatusType(scope.row.status)">
                   {{ getOrderStatusText(scope.row.status) }}
                 </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="150">
-              <template #default="scope">
-                <el-button size="mini" type="primary" @click="viewOrderDetail(scope.row.orderId)">详情</el-button>
-                <el-button size="mini" type="danger" v-if="canCancelOrder(scope.row)" @click="cancelOrder(scope.row.orderId)">取消</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -307,6 +297,11 @@ const memberInfo = ref(null)
 // 订单相关数据
 const recentOrders = ref([])
 const orderStatusMap = {
+  'PENDING': { text: '待支付', type: 'warning' },
+  'SUCCESS': { text: '支付成功', type: 'success' },
+  'FAILED': { text: '支付失败', type: 'danger' },
+  'TIMEOUT': { text: '支付超时', type: 'danger' },
+  // 保留数字格式的映射以兼容旧数据
   0: { text: '待支付', type: 'warning' },
   1: { text: '已支付', type: 'success' },
   2: { text: '已发货', type: 'primary' },
@@ -320,15 +315,27 @@ const consumptionData = reactive({
   totalAmount: 0,
   orderCount: 0,
   bookCount: 0,
-  monthlyStats: Array.from({ length: 6 }, (_, i) => {
-    return { month: `${i + 1}月`, amount: 0 }
-  })
+  monthlyStats: (() => {
+    const now = new Date()
+    const stats = []
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      stats.push({
+        month: `${date.getMonth() + 1}月`,
+        amount: 0
+      })
+    }
+    return stats
+  })()
 })
 
 // 头像上传相关
 const avatarUploadVisible = ref(false)
 const avatarPreview = ref('')
 const avatarFile = ref(null)
+
+// 会员相关对话框
+const deleteMemberDialogVisible = ref(false)
 
 // 编辑表单相关 - 扩展表单
 const editFormVisible = ref(false)
@@ -381,7 +388,7 @@ const getMemberLevelTagType = (level) => {
     case 3:
       return 'danger' // 红色
     default:
-      return '' // 默认灰色
+      return 'info' // 默认蓝色（而不是空字符串）
   }
 }
 
@@ -400,16 +407,12 @@ const getDiscountByLevel = (level) => {
 
 // 订单相关方法
 const getOrderStatusText = (status) => {
-  return orderStatusMap[status]?.text || '未知状态'
+  console.log('订单状态:', status, '类型:', typeof status)
+  return orderStatusMap[status]?.text || `未知状态(${status})`
 }
 
 const getOrderStatusType = (status) => {
   return orderStatusMap[status]?.type || 'info'
-}
-
-const canCancelOrder = (order) => {
-  // 只有待支付和已支付（未发货）的订单可以取消
-  return [0, 1].includes(order.status)
 }
 
 // 替换 echarts 图表，使用 el-progress 来显示每月消费数据
@@ -437,14 +440,18 @@ const fetchUserInfo = async () => {
     
     console.log(`尝试获取用户 ${username} 的信息，token存在: ${!!token}`)
     
+    // 对用户名进行URL编码，确保中文字符正确传输
+    const encodedUsername = encodeURIComponent(username)
+    console.log(`原始用户名: ${username}, 编码后: ${encodedUsername}`)
+    
     // 直接使用原始axios请求，确保URL路径正确
-    const response = await axios.get(`/api/accounts/${username}`, {
+    const response = await axios.get(`/api/accounts/${encodedUsername}`, {
       headers: { token }
     })
+      console.log('API响应状态:', response.status)
+    console.log('API响应数据:', response.data)
     
-    console.log('API响应状态:', response.status)
-    
-    if (response.data && response.data.code === 200) {
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       const userData = response.data.data
       
       // 更新用户信息
@@ -461,14 +468,15 @@ const fetchUserInfo = async () => {
         memberLevel.value = userData.memberLevel
       }
       
-      console.log('成功获取用户信息')
+      console.log('成功获取用户信息:', userData)
       ElMessage.success('个人信息加载成功')
     } else {
       throw new Error(response.data?.msg || '获取用户信息失败')
     }
   } catch (error) {
     console.error('获取用户信息出错:', error)
-    ElMessage.error('获取用户信息失败，请确保已登录')
+    ElMessage.error('获取用户信息失败: ' + (error.response?.data?.msg || error.message))
+    throw error
   }
 }
 
@@ -496,17 +504,35 @@ const fetchMemberInfo = async () => {
 // 修改fetchRecentOrders函数 - 使用简化的API路径或暂时不调用API
 const fetchRecentOrders = async () => {
   try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      recentOrders.value = []
+      return
+    }
+    
+    // 对用户名进行URL编码
+    const encodedUsername = encodeURIComponent(username)
+    
     // 尝试获取真实订单数据
     const response = await axios.get('/api/orders', {
       params: { 
-        username: localStorage.getItem('username'),
+        username: encodedUsername,
         limit: 5 
       },
-      headers: { token: localStorage.getItem('token') }
+      headers: { token }
     })
     
     if (response.data && response.data.code === 200) {
       recentOrders.value = response.data.data || []
+      console.log('获取到的订单数据:', recentOrders.value)
+      // 打印每个订单的状态信息
+      recentOrders.value.forEach((order, index) => {
+        console.log(`订单${index + 1} - ID: ${order.orderId}, 状态: ${order.status}, 状态类型: ${typeof order.status}`)
+      })
+        // 从最近订单数据中计算基础统计信息
+      calculateConsumptionStatsFromOrders(recentOrders.value)
     } else {
       recentOrders.value = []
       console.error('获取订单记录失败:', response.data?.msg)
@@ -517,40 +543,150 @@ const fetchRecentOrders = async () => {
   }
 }
 
-// 修改fetchConsumptionStats函数，真正尝试从后端获取数据
+// 修改fetchConsumptionStats函数，从订单数据中计算统计信息
 const fetchConsumptionStats = async () => {
   try {
-    // 尝试从后端获取真实数据
-    const response = await axios.get('/api/accounts/stats', {
-      params: { username: localStorage.getItem('username') },
-      headers: { token: localStorage.getItem('token') }
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      resetConsumptionData()
+      return
+    }
+    
+    // 对用户名进行URL编码
+    const encodedUsername = encodeURIComponent(username)
+    
+    // 获取所有订单数据用于统计（不限制数量）
+    const response = await axios.get('/api/orders', {
+      params: { 
+        username: encodedUsername
+        // 移除limit参数以获取所有订单
+      },
+      headers: { token }
     })
     
     if (response.data && response.data.code === 200) {
-      const statsData = response.data.data
+      const allOrders = response.data.data || []
+      console.log('获取到所有订单数据用于统计:', allOrders.length, '个订单')
       
-      // 更新消费统计数据
-      consumptionData.totalAmount = statsData.totalAmount || 0
-      consumptionData.orderCount = statsData.orderCount || 0
-      consumptionData.bookCount = statsData.bookCount || 0
-      
-      // 更新月度统计数据
-      if (Array.isArray(statsData.monthlyStats) && statsData.monthlyStats.length > 0) {
-        consumptionData.monthlyStats = statsData.monthlyStats
-      } else {
-        // 如果API没有返回月度数据，保持空数据
-        resetConsumptionData('monthlyStats')
-      }
+      // 从所有订单数据中计算消费统计
+      calculateConsumptionStatsFromAllOrders(allOrders)
     } else {
       // 如果API返回错误，重置为空数据
       resetConsumptionData()
-      console.error('获取消费统计失败:', response.data?.msg)
+      console.error('获取订单数据失败:', response.data?.msg)
     }
   } catch (error) {
-    console.error('获取消费统计出错:', error)
+    console.error('获取订单数据失败:', error.response?.data?.msg || error.message)
     // 初始化空数据
     resetConsumptionData()
   }
+}
+
+// 新增：从订单数据计算消费统计的函数
+const calculateConsumptionStatsFromOrders = (orders) => {
+  // 这个函数用于从最近的订单数据计算基本统计，但不包括月度统计
+  if (!orders || orders.length === 0) {
+    return
+  }
+  
+  console.log('从订单计算基本统计...', orders.length, '个订单')
+  
+  // 计算订单的统计
+  let totalAmount = 0
+  let orderCount = 0
+  let bookCount = 0
+  
+  orders.forEach(order => {
+    // 只统计成功支付的订单
+    if (order.status === 'SUCCESS' || order.status === 1 || order.status === 3) {
+      totalAmount += order.totalAmount || 0
+      orderCount += 1
+      // 如果订单中有书籍数量信息，可以累加
+      bookCount += order.bookCount || 1 // 假设每个订单默认包含1本书
+    }
+  })
+    // 只有从最近订单计算时，才更新基础统计（避免与完整统计冲突）
+  // 注意：如果 fetchConsumptionStats 已经完成，则不覆盖完整统计数据
+  if (orders === recentOrders.value && consumptionData.monthlyStats.every(stat => stat.amount === 0)) {
+    // 只有月度统计为空时，才用最近订单的统计数据
+    consumptionData.totalAmount = totalAmount
+    consumptionData.orderCount = orderCount  
+    consumptionData.bookCount = bookCount
+    console.log('使用最近订单的统计数据')
+  } else if (orders !== recentOrders.value) {
+    // 如果不是最近订单，则只记录日志
+    console.log('从其他订单数据计算的统计数据（不更新UI）')
+  }
+  
+  console.log(`订单统计 - 金额: ${totalAmount}, 订单数: ${orderCount}, 书籍数: ${bookCount}`)
+}
+
+// 新增：从所有订单数据计算完整的消费统计
+const calculateConsumptionStatsFromAllOrders = (allOrders) => {
+  console.log('从所有订单计算完整统计...')
+  
+  // 重置统计数据
+  consumptionData.totalAmount = 0
+  consumptionData.orderCount = 0
+  consumptionData.bookCount = 0
+  
+  // 初始化最近6个月的统计
+  const now = new Date()
+  const monthlyStats = []
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    monthlyStats.push({
+      month: `${date.getMonth() + 1}月`,
+      amount: 0,
+      year: date.getFullYear(),
+      monthNum: date.getMonth()
+    })
+  }
+  
+  // 遍历所有订单进行统计
+  allOrders.forEach(order => {
+    // 只统计成功支付的订单
+    if (order.status === 'SUCCESS' || order.status === 1 || order.status === 3) {
+      const orderAmount = order.totalAmount || 0
+      
+      // 累计总统计
+      consumptionData.totalAmount += orderAmount
+      consumptionData.orderCount += 1
+      consumptionData.bookCount += order.bookCount || 1
+      
+      // 月度统计
+      if (order.createTime) {
+        const orderDate = new Date(order.createTime)
+        const orderYear = orderDate.getFullYear()
+        const orderMonth = orderDate.getMonth()
+        
+        // 查找对应的月份并累加金额
+        const monthStat = monthlyStats.find(stat => 
+          stat.year === orderYear && stat.monthNum === orderMonth
+        )
+        
+        if (monthStat) {
+          monthStat.amount += orderAmount
+        }
+      }
+    }
+  })
+  
+  // 更新月度统计数据（移除year和monthNum临时字段）
+  consumptionData.monthlyStats = monthlyStats.map(stat => ({
+    month: stat.month,
+    amount: Math.round(stat.amount * 100) / 100 // 保留两位小数
+  }))
+  
+  console.log('完整统计结果:', {
+    totalAmount: consumptionData.totalAmount,
+    orderCount: consumptionData.orderCount,
+    bookCount: consumptionData.bookCount,
+    monthlyStats: consumptionData.monthlyStats
+  })
 }
 
 // 修改resetConsumptionData函数，允许只重置特定字段
@@ -563,11 +699,16 @@ const resetConsumptionData = (field = 'all') => {
   }
   if (field === 'all' || field === 'bookCount') {
     consumptionData.bookCount = 0
-  }
-  if (field === 'all' || field === 'monthlyStats') {
-    consumptionData.monthlyStats = Array.from({ length: 6 }, (_, i) => {
-      return { month: `${i + 1}月`, amount: 0 }
-    })
+  }  if (field === 'all' || field === 'monthlyStats') {
+    const now = new Date()
+    consumptionData.monthlyStats = []
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      consumptionData.monthlyStats.push({
+        month: `${date.getMonth() + 1}月`,
+        amount: 0
+      })
+    }
   }
 }
 
@@ -700,23 +841,6 @@ const viewOrderDetail = (orderId) => {
 
 const viewAllOrders = () => {
   router.push('/orders')
-}
-
-const cancelOrder = async (orderId) => {
-  try {
-    const response = await axios.post(`/api/orders/${orderId}/cancel`)
-    
-    if (response.data && response.data.code === 200) {
-      ElMessage.success('订单取消成功')
-      // 重新获取订单列表以刷新状态
-      await fetchRecentOrders()
-    } else {
-      ElMessage.error(response.data?.msg || '取消订单失败')
-    }
-  } catch (error) {
-    console.error('取消订单出错:', error)
-    ElMessage.error('取消订单失败')
-  }
 }
 
 // 生命周期钩子
@@ -913,5 +1037,18 @@ onMounted(async () => {
   color: #303133;
   font-size: 16px;
   font-weight: bold;
+}
+
+/* 订单状态样式 */
+.status-pending {
+  color: #e6a23c;
+}
+
+.status-success {
+  color: #67c23a;
+}
+
+.status-failed, .status-timeout {
+  color: #f56c6c;
 }
 </style>
