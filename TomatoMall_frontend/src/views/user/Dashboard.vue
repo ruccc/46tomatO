@@ -252,6 +252,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { axios } from '../../utils/request'
+import { ElMessage } from 'element-plus'
 
 // 日期格式化函数
 const formatDate = (dateString, format = 'YYYY-MM-DD HH:mm:ss') => {
@@ -313,19 +315,14 @@ const orderStatusMap = {
   5: { text: '已退款', type: 'danger' }
 }
 
-// 消费统计数据 - 简化结构
+// 消费统计数据 - 使用空值而非假数据
 const consumptionData = reactive({
   totalAmount: 0,
   orderCount: 0,
   bookCount: 0,
-  monthlyStats: [
-    { month: '1月', amount: 0 },
-    { month: '2月', amount: 0 },
-    { month: '3月', amount: 50 },
-    { month: '4月', amount: 100 },
-    { month: '5月', amount: 150 },
-    { month: '6月', amount: 0 }
-  ]
+  monthlyStats: Array.from({ length: 6 }, (_, i) => {
+    return { month: `${i + 1}月`, amount: 0 }
+  })
 })
 
 // 头像上传相关
@@ -429,103 +426,233 @@ const getProgressColor = (percentage) => {
 }
 
 // 数据加载函数
-const fetchUserInfo = () => {
-  // 模拟从API获取用户数据
-  // 实际项目中应替换为真实API调用
-  setTimeout(() => {
-    userInfo.name = '测试用户'
-    userInfo.email = 'test@example.com'
-    userInfo.telephone = '13800138000'
-    userInfo.address = '北京市海淀区XX街道'
-    userInfo.birthday = '1990-01-01'
-    userInfo.gender = 1
-  }, 500)
-}
-
-const fetchMemberInfo = () => {
-  // 模拟从API获取会员数据
-  // 实际项目中应替换为真实API调用
-  const storedMemberLevel = localStorage.getItem('memberLevel')
-  memberLevel.value = storedMemberLevel ? parseInt(storedMemberLevel) : 0
-  
-  if (memberLevel.value > 0) {
-    memberInfo.value = {
-      id: '1',
-      level: memberLevel.value
+const fetchUserInfo = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      throw new Error('未找到用户登录信息')
     }
+    
+    console.log(`尝试获取用户 ${username} 的信息，token存在: ${!!token}`)
+    
+    // 直接使用原始axios请求，确保URL路径正确
+    const response = await axios.get(`/api/accounts/${username}`, {
+      headers: { token }
+    })
+    
+    console.log('API响应状态:', response.status)
+    
+    if (response.data && response.data.code === 200) {
+      const userData = response.data.data
+      
+      // 更新用户信息
+      userInfo.id = userData.id
+      userInfo.username = userData.username
+      userInfo.name = userData.name || userData.username
+      userInfo.email = userData.email
+      userInfo.telephone = userData.telephone
+      userInfo.address = userData.location // 使用location作为地址字段
+      userInfo.createTime = userData.createTime ? new Date(userData.createTime) : new Date()
+      
+      // 会员等级
+      if (userData.memberLevel !== undefined) {
+        memberLevel.value = userData.memberLevel
+      }
+      
+      console.log('成功获取用户信息')
+      ElMessage.success('个人信息加载成功')
+    } else {
+      throw new Error(response.data?.msg || '获取用户信息失败')
+    }
+  } catch (error) {
+    console.error('获取用户信息出错:', error)
+    ElMessage.error('获取用户信息失败，请确保已登录')
   }
 }
 
-const fetchRecentOrders = () => {
-  // 模拟获取最近订单数据
-  recentOrders.value = [
-    { orderId: 'ORD20230001', createTime: '2023-05-01T08:30:00', totalAmount: 99.90, status: 3 },
-    { orderId: 'ORD20230002', createTime: '2023-05-15T14:20:00', totalAmount: 149.60, status: 2 },
-    { orderId: 'ORD20230003', createTime: '2023-05-20T11:45:00', totalAmount: 50.00, status: 1 }
-  ]
-}
-
-const fetchConsumptionStats = () => {
-  // 模拟获取消费统计数据
-  consumptionData.totalAmount = 299.50
-  consumptionData.orderCount = 3
-  consumptionData.bookCount = 5
-  
-  // 模拟月度数据 - 保留不变
-  consumptionData.monthlyStats = [
-    { month: '1月', amount: 0 },
-    { month: '2月', amount: 0 },
-    { month: '3月', amount: 50 },
-    { month: '4月', amount: 100 },
-    { month: '5月', amount: 150 },
-    { month: '6月', amount: 0 }
-  ]
-}
-
-// 头像上传相关方法
-const showAvatarUpload = () => {
-  avatarUploadVisible.value = true
-  avatarPreview.value = userInfo.avatar || defaultAvatar
-  avatarFile.value = null
-}
-
-const beforeAvatarUpload = (file) => {
-  const isJPG = file.type === 'image/jpeg'
-  const isPNG = file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isJPG && !isPNG) {
-    ElMessage.error('头像只能是JPG或PNG格式!')
-    return false
+// 修改fetchMemberInfo函数 - 目前可能后端还没有实现会员API
+const fetchMemberInfo = async () => {
+  try {
+    // 如果后端没有会员API，我们根据会员等级简单创建会员信息
+    if (memberLevel.value > 0) {
+      // 暂时不调用API，直接创建memberInfo对象
+      memberInfo.value = {
+        level: memberLevel.value,
+        discountRate: getDiscountByLevel(memberLevel.value) / 10,
+        createTime: new Date().toISOString()
+      }
+      console.log('创建会员信息:', memberInfo.value)
+    } else {
+      memberInfo.value = null
+    }
+  } catch (error) {
+    console.error('获取会员信息出错:', error)
+    memberInfo.value = null
   }
-  if (!isLt2M) {
-    ElMessage.error('头像大小不能超过 2MB!')
-    return false
-  }
-  
-  return true
 }
 
-const handleAvatarUpload = (options) => {
-  const file = options.file
-  avatarFile.value = file
-  
-  // 本地预览
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    avatarPreview.value = e.target.result
+// 修改fetchRecentOrders函数 - 使用简化的API路径或暂时不调用API
+const fetchRecentOrders = async () => {
+  try {
+    // 尝试获取真实订单数据
+    const response = await axios.get('/api/orders', {
+      params: { 
+        username: localStorage.getItem('username'),
+        limit: 5 
+      },
+      headers: { token: localStorage.getItem('token') }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      recentOrders.value = response.data.data || []
+    } else {
+      recentOrders.value = []
+      console.error('获取订单记录失败:', response.data?.msg)
+    }
+  } catch (error) {
+    console.error('获取订单记录出错:', error)
+    recentOrders.value = []
   }
-  reader.readAsDataURL(file)
 }
 
-const confirmAvatarUpload = () => {
+// 修改fetchConsumptionStats函数，真正尝试从后端获取数据
+const fetchConsumptionStats = async () => {
+  try {
+    // 尝试从后端获取真实数据
+    const response = await axios.get('/api/accounts/stats', {
+      params: { username: localStorage.getItem('username') },
+      headers: { token: localStorage.getItem('token') }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      const statsData = response.data.data
+      
+      // 更新消费统计数据
+      consumptionData.totalAmount = statsData.totalAmount || 0
+      consumptionData.orderCount = statsData.orderCount || 0
+      consumptionData.bookCount = statsData.bookCount || 0
+      
+      // 更新月度统计数据
+      if (Array.isArray(statsData.monthlyStats) && statsData.monthlyStats.length > 0) {
+        consumptionData.monthlyStats = statsData.monthlyStats
+      } else {
+        // 如果API没有返回月度数据，保持空数据
+        resetConsumptionData('monthlyStats')
+      }
+    } else {
+      // 如果API返回错误，重置为空数据
+      resetConsumptionData()
+      console.error('获取消费统计失败:', response.data?.msg)
+    }
+  } catch (error) {
+    console.error('获取消费统计出错:', error)
+    // 初始化空数据
+    resetConsumptionData()
+  }
+}
+
+// 修改resetConsumptionData函数，允许只重置特定字段
+const resetConsumptionData = (field = 'all') => {
+  if (field === 'all' || field === 'totalAmount') {
+    consumptionData.totalAmount = 0
+  }
+  if (field === 'all' || field === 'orderCount') {
+    consumptionData.orderCount = 0
+  }
+  if (field === 'all' || field === 'bookCount') {
+    consumptionData.bookCount = 0
+  }
+  if (field === 'all' || field === 'monthlyStats') {
+    consumptionData.monthlyStats = Array.from({ length: 6 }, (_, i) => {
+      return { month: `${i + 1}月`, amount: 0 }
+    })
+  }
+}
+
+// 修改submitEditForm函数，使用正确的API路径
+const submitEditForm = async () => {
+  try {
+    // 获取token
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('未找到用户登录信息')
+    }
+    
+    // 创建符合后端要求的更新对象
+    const updateInfo = {
+      name: editForm.name,
+      email: editForm.email,
+      telephone: editForm.telephone,
+      location: editForm.address, // 注意：字段名称是location而不是address
+      // birthday和gender字段可能需要后端支持
+    }
+    
+    // 使用user.ts中定义的API
+    const response = await axios.put('/api/accounts', updateInfo, {
+      headers: {
+        'Content-Type': 'application/json',
+        token
+      }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      // 更新本地用户信息
+      userInfo.name = editForm.name
+      userInfo.email = editForm.email
+      userInfo.telephone = editForm.telephone
+      userInfo.address = editForm.address // 在前端仍然使用address
+      
+      ElMessage.success('个人信息更新成功')
+      editFormVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '更新个人信息失败')
+    }
+  } catch (error) {
+    console.error('更新个人信息出错:', error)
+    ElMessage.error('更新个人信息失败')
+  }
+}
+
+// 修改confirmAvatarUpload函数 - 头像上传API可能尚未实现
+const confirmAvatarUpload = async () => {
   if (!avatarFile.value) return
   
-  // 实际项目中这里应该调用API上传文件到服务器
-  // 这里仅模拟更新头像
-  userInfo.avatar = avatarPreview.value
-  ElMessage.success('头像上传成功')
-  avatarUploadVisible.value = false
+  try {
+    // 假设头像上传API尚未实现，只在本地更新
+    console.log('头像上传API尚未实现，仅在本地更新头像')
+    
+    // 在本地更新头像预览
+    userInfo.avatar = avatarPreview.value
+    ElMessage.success('头像已在本地更新')
+    avatarUploadVisible.value = false
+    
+    // 当后端实现API后，可以取消下面的注释
+    /*
+    const formData = new FormData()
+    formData.append('file', avatarFile.value)
+    formData.append('username', localStorage.getItem('username') || '')
+    
+    const response = await axios.post('/api/accounts/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        token: localStorage.getItem('token')
+      }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      userInfo.avatar = response.data.data.avatarUrl || avatarPreview.value
+      ElMessage.success('头像上传成功')
+      avatarUploadVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '头像上传失败')
+    }
+    */
+  } catch (error) {
+    console.error('上传头像出错:', error)
+    ElMessage.error('头像上传失败')
+  }
 }
 
 // UI交互方法
@@ -540,34 +667,31 @@ const showEditForm = () => {
   editFormVisible.value = true
 }
 
-const submitEditForm = () => {
-  // 模拟表单提交
-  userInfo.name = editForm.name
-  userInfo.email = editForm.email
-  userInfo.telephone = editForm.telephone
-  userInfo.address = editForm.address
-  userInfo.birthday = editForm.birthday
-  userInfo.gender = editForm.gender
-  
-  ElMessage.success('个人信息更新成功')
-  editFormVisible.value = false
-}
-
 const deleteMemberShip = () => {
   deleteMemberDialogVisible.value = true
 }
 
-const confirmDeleteMember = () => {
-  // 模拟取消会员资格
-  localStorage.removeItem('memberLevel')
-  memberLevel.value = 0
-  memberInfo.value = null
-  deleteMemberDialogVisible.value = false
+const confirmDeleteMember = async () => {
+  try {
+    const response = await axios.post('/api/membership/cancel')
+    
+    if (response.data && response.data.code === 200) {
+      memberLevel.value = 0
+      memberInfo.value = null
+      localStorage.removeItem('memberLevel')
+      ElMessage.success('已成功取消会员资格')
+      deleteMemberDialogVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '取消会员失败')
+    }
+  } catch (error) {
+    console.error('取消会员出错:', error)
+    ElMessage.error('取消会员失败')
+  }
 }
 
 const goToCreateMember = () => {
-  // 模拟跳转到会员购买页面
-  router.push('/products') // 假设会员卡在商品列表中
+  router.push('/membership')
 }
 
 const viewOrderDetail = (orderId) => {
@@ -578,22 +702,36 @@ const viewAllOrders = () => {
   router.push('/orders')
 }
 
-const cancelOrder = (orderId) => {
-  // 模拟取消订单
-  recentOrders.value = recentOrders.value.map(order => {
-    if (order.orderId === orderId) {
-      return { ...order, status: 4 } // 设置为已取消
+const cancelOrder = async (orderId) => {
+  try {
+    const response = await axios.post(`/api/orders/${orderId}/cancel`)
+    
+    if (response.data && response.data.code === 200) {
+      ElMessage.success('订单取消成功')
+      // 重新获取订单列表以刷新状态
+      await fetchRecentOrders()
+    } else {
+      ElMessage.error(response.data?.msg || '取消订单失败')
     }
-    return order
-  })
+  } catch (error) {
+    console.error('取消订单出错:', error)
+    ElMessage.error('取消订单失败')
+  }
 }
 
 // 生命周期钩子
-onMounted(() => {
-  fetchUserInfo()
-  fetchMemberInfo()
-  fetchRecentOrders()
-  fetchConsumptionStats()
+onMounted(async () => {
+  try {
+    // 先获取用户信息
+    await fetchUserInfo()
+    
+    // 然后获取其他信息
+    fetchMemberInfo()
+    fetchRecentOrders()
+    fetchConsumptionStats()
+  } catch (error) {
+    console.error('初始化数据出错:', error)
+  }
 })
 </script>
 
