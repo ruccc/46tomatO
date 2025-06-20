@@ -57,24 +57,21 @@
             </div>
           </div>
         </el-card>
-      </el-aside>
-
-      <!-- 右侧聊天区域 -->
+      </el-aside>      <!-- 右侧聊天区域 -->
       <el-main class="chat-panel">
-        <el-card class="chat-card" v-if="selectedContactId">
-          <template #header>
-            <div class="chat-header">
-              <div class="contact-info">
-                <el-avatar :src="selectedContact?.avatar" :size="32">
-                  {{ selectedContact?.name?.charAt(0) }}
-                </el-avatar>
-                <span class="contact-name">{{ selectedContact?.name }}</span>
-              </div>
-              <el-button type="primary" size="small" @click="markCurrentAsRead">
-                标记已读
-              </el-button>
+        <div class="chat-container" v-if="selectedContactId">
+          <!-- 聊天头部 -->
+          <div class="chat-header">
+            <div class="contact-info">
+              <el-avatar :src="selectedContact?.avatar" :size="32">
+                {{ selectedContact?.name?.charAt(0) }}
+              </el-avatar>
+              <span class="contact-name">{{ selectedContact?.name }}</span>
             </div>
-          </template>
+            <el-button type="primary" size="small" @click="markCurrentAsRead">
+              标记已读
+            </el-button>
+          </div>
 
           <!-- 消息列表 -->
           <div class="messages-area" ref="messagesRef" v-loading="messagesLoading">
@@ -92,15 +89,19 @@
                 <div class="message-header">
                   <span class="sender-name">{{ message.senderName }}</span>
                   <span class="message-time">{{ formatTime(message.createTime) }}</span>
-                </div>
-                <div class="message-body" v-if="message.contentType === 'text'">
+                </div>                <div class="message-body" v-if="message.contentType === 'text'">
                   {{ message.content }}
-                </div>
-                <div class="message-body" v-else-if="message.contentType === 'image'">
-                  <el-image :src="message.content" fit="contain" style="max-width: 200px;" />
-                </div>
-                <div class="message-body" v-else-if="message.contentType === 'link'">
-                  <el-link :href="message.content" target="_blank">{{ message.content }}</el-link>
+                </div>                <div class="message-body" v-else-if="message.contentType === 'link'">
+                  <a 
+                    :href="message.content" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="external-link"
+                    @click="handleLinkClick(message.content, $event)"
+                  >
+                    <i class="el-icon-link" style="margin-right: 4px;"></i>
+                    {{ message.content }}
+                  </a>
                 </div>
                 <div class="message-status" v-if="message.isSender">
                   <el-tag :type="message.status === 2 ? 'success' : 'info'" size="small">
@@ -109,28 +110,34 @@
                 </div>
               </div>
             </div>
-            
-            <div v-if="!messagesLoading && messages.length === 0" class="empty-messages">
+              <div v-if="!messagesLoading && messages.length === 0" class="empty-messages">
               <el-empty description="还没有消息，快开始聊天吧！" />
             </div>
           </div>
 
           <!-- 消息输入区 -->
           <div class="message-input-area">
-            <el-divider />
-            <div class="input-controls">
+            <el-divider />            <div class="input-hint">
+              <el-text size="small" type="info">
+                正在与 {{ selectedContact?.name }} 对话 - 
+                <el-text v-if="messageType === 'text'" size="small" type="primary">按Enter发送，Shift+Enter换行</el-text>
+                <el-text v-else-if="messageType === 'link'" size="small" type="primary">按Enter发送链接</el-text>
+                <el-text v-if="messageType === 'link'" size="small" type="warning">
+                  （网页链接将在新标签页打开）
+                </el-text>
+              </el-text>
+            </div><div class="input-controls">
               <el-select v-model="messageType" style="width: 120px;">
                 <el-option label="文本" value="text" />
-                <el-option label="图片链接" value="image" />
                 <el-option label="网页链接" value="link" />
-              </el-select>
-              <el-input
+              </el-select>              <el-input
                 v-model="newMessage"
                 :placeholder="getInputPlaceholder()"
                 :type="messageType === 'text' ? 'textarea' : 'text'"
                 :rows="3"
-                @keyup.enter="handleEnterKey"
+                @keydown.enter="handleEnterKey"
                 style="flex: 1; margin: 0 10px;"
+                clearable
               />
               <el-button 
                 type="primary" 
@@ -138,11 +145,11 @@
                 :disabled="!newMessage.trim()"
                 :loading="sending"
               >
-                发送
-              </el-button>
+                <template v-if="sending">发送中...</template>
+                <template v-else>发送</template>              </el-button>
             </div>
           </div>
-        </el-card>
+        </div>
         
         <!-- 未选择联系人时的提示 -->
         <div v-else class="no-contact-selected">
@@ -282,11 +289,11 @@ const formatTime = (timeStr) => {
 
 // 获取输入框占位符
 const getInputPlaceholder = () => {
+  const contactName = selectedContact.value?.name || '对方'
   switch (messageType.value) {
-    case 'text': return '输入消息内容...'
-    case 'image': return '输入图片链接...'
-    case 'link': return '输入网页链接...'
-    default: return '输入消息内容...'
+    case 'text': return `给 ${contactName} 发送消息...`
+    case 'link': return `发送网页链接给 ${contactName}（如：https://example.com）...`
+    default: return `给 ${contactName} 发送消息...`
   }
 }
 
@@ -401,6 +408,23 @@ const loadConversation = async (page = 0) => {
 // 发送消息
 const sendNewMessage = async () => {
   if (!newMessage.value.trim() || !selectedContactId.value) return
+    // 如果是网页链接类型，验证URL格式
+  if (messageType.value === 'link') {
+    const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i
+    if (!urlPattern.test(newMessage.value.trim())) {
+      ElMessage.error('请输入有效的网页链接（如：https://example.com）')
+      return
+    }
+    
+    // 确保链接以 http:// 或 https:// 开头
+    let url = newMessage.value.trim()
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url
+      newMessage.value = url
+    }
+    
+    console.log('发送的链接:', url) // 调试信息
+  }
   
   sending.value = true
   try {
@@ -416,29 +440,61 @@ const sendNewMessage = async () => {
     
     if (response.data && response.data.code === 200) {
       // 添加新消息到列表
-      messages.value.push(response.data.data)
+      const newMsg = response.data.data
+      messages.value.push(newMsg)
+      
+      // 清空输入框
       newMessage.value = ''
       
       // 滚动到底部
       await nextTick()
       scrollToBottom()
       
-      // 刷新联系人列表
+      // 刷新联系人列表（更新最后消息）
       await loadContacts()
+      
+      // 显示成功提示
+      ElMessage.success(`消息已发送给 ${selectedContact.value?.name}`)
     } else {
       ElMessage.error(response.data?.message || '发送消息失败')
     }
   } catch (error) {
     console.error('发送消息失败:', error)
-    ElMessage.error('发送消息失败')
+    ElMessage.error('发送消息失败，请检查网络连接')
   } finally {
     sending.value = false
   }
 }
 
+// 处理链接点击
+const handleLinkClick = (url, event) => {
+  // 确保URL格式正确
+  let finalUrl = url
+  if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+    finalUrl = 'https://' + finalUrl
+  }
+  
+  console.log('点击链接，跳转到:', finalUrl)
+  
+  // 强制在新窗口打开
+  window.open(finalUrl, '_blank', 'noopener,noreferrer')
+}
+
 // 处理回车键
 const handleEnterKey = (event) => {
-  if (messageType.value === 'text' && !event.shiftKey) {
+  // 对于文本消息，支持Shift+Enter换行，Enter发送
+  if (messageType.value === 'text') {
+    if (event.shiftKey) {
+      // Shift+Enter：允许换行，不阻止默认行为
+      return
+    } else {
+      // 单独按Enter：发送消息
+      event.preventDefault()
+      sendNewMessage()
+    }
+  }
+  // 对于链接消息，直接Enter发送（因为链接通常是单行的）
+  else if (messageType.value === 'link') {
     event.preventDefault()
     sendNewMessage()
   }
@@ -663,16 +719,22 @@ onMounted(async () => {
   flex: 1;
 }
 
-.chat-card {
+.chat-container {
   height: 100%;
   display: flex;
   flex-direction: column;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .chat-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #ebeef5;
+  background: white;
 }
 
 .chat-header .contact-info {
@@ -682,7 +744,7 @@ onMounted(async () => {
 }
 
 .messages-area {
-  height: calc(100vh - 280px);
+  flex: 1;
   overflow-y: auto;
   padding: 16px;
   background-color: #f8f9fa;
@@ -731,6 +793,31 @@ onMounted(async () => {
   border-radius: 8px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
   word-wrap: break-word;
+  white-space: pre-wrap; /* 保持换行和空格 */
+  word-break: break-word; /* 长单词换行 */
+}
+
+/* 网页链接消息特殊样式 */
+.message-body .external-link {
+  color: #409eff;
+  text-decoration: underline;
+  word-break: break-all;
+  font-size: 14px;
+  display: inline-block;
+  transition: color 0.3s;
+}
+
+.message-body .external-link:hover {
+  color: #66b1ff;
+  font-weight: 500;
+}
+
+.message-item.is-sender .message-body .external-link {
+  color: #ffffff;
+}
+
+.message-item.is-sender .message-body .external-link:hover {
+  color: #e6f7ff;
 }
 
 .message-status {
@@ -740,6 +827,14 @@ onMounted(async () => {
 
 .message-input-area {
   padding: 16px;
+  background-color: white;
+  border-top: 1px solid #ebeef5;
+  margin-top: auto;
+}
+
+.input-hint {
+  margin-bottom: 8px;
+  padding: 4px 0;
 }
 
 .input-controls {
