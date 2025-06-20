@@ -7,7 +7,7 @@
           <template #header>
             <div class="clearfix">
               <span>个人信息</span>
-              <el-button style="float: right; padding: 3px 0" type="text" @click="showEditForm">修改信息</el-button>
+              <el-button style="float: right; padding: 3px 0" type="primary" link @click="showEditForm">修改信息</el-button>
             </div>
           </template>
           <div class="user-profile">
@@ -21,17 +21,15 @@
             </div>
             <div class="user-info">
               <h3>{{ userInfo.name || '未设置姓名' }}</h3>
-              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>
-              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
+              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
               <p>手机: {{ userInfo.telephone || '未设置' }}</p>
               <!-- 添加地址信息 -->
               <p>地址: {{ userInfo.address || '未设置' }}</p>
-              <p>注册时间: {{ formatDate(userInfo.createTime || new Date()) }}</p>
               
               <!-- 添加会员身份显示 -->
               <div class="member-identity">
                 <span class="identity-label">会员等级:</span>
-                <el-tag :type="getMemberLevelTagType(memberLevel)" size="medium">
+                <el-tag :type="getMemberLevelTagType(memberLevel)" size="default">
                   {{ getMemberLevelName(memberLevel) }}
                 </el-tag>
               </div>
@@ -48,8 +46,7 @@
         <el-card class="box-card">
           <template #header>
             <div class="clearfix">
-              <span>会员信息</span>
-              <el-button style="float: right; padding: 3px 0; margin-left: 10px;" type="text" 
+              <span>会员信息</span>              <el-button style="float: right; padding: 3px 0; margin-left: 10px;" type="primary" link
                       @click="deleteMemberShip" v-if="memberInfo">取消会员</el-button>
             </div>
           </template>
@@ -131,18 +128,17 @@
           <template #header>
             <div class="clearfix">
               <span>历史订单</span>
-              <el-button style="float: right; padding: 3px 0" type="text" @click="viewAllOrders">查看全部</el-button>
+              <el-button style="float: right; padding: 3px 0" type="primary" link @click="viewAllOrders">查看全部</el-button>
             </div>
           </template>
-          
-          <el-table :data="recentOrders" stripe style="width: 100%">
-            <el-table-column prop="orderId" label="订单编号" width="180"></el-table-column>
-            <el-table-column prop="createTime" label="下单时间" width="160">
+            <el-table :data="recentOrders" stripe style="width: 100%">
+            <el-table-column prop="orderId" label="订单编号" width="200"></el-table-column>
+            <el-table-column prop="createTime" label="下单时间" width="200">
               <template #default="scope">
                 {{ formatDate(scope.row.createTime) }}
               </template>
             </el-table-column>
-            <el-table-column prop="totalAmount" label="订单金额" width="120">
+            <el-table-column prop="totalAmount" label="订单金额" width="200">
               <template #default="scope">
                 ¥{{ scope.row.totalAmount.toFixed(2) }}
               </template>
@@ -152,12 +148,6 @@
                 <el-tag :type="getOrderStatusType(scope.row.status)">
                   {{ getOrderStatusText(scope.row.status) }}
                 </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="操作" width="150">
-              <template #default="scope">
-                <el-button size="mini" type="primary" @click="viewOrderDetail(scope.row.orderId)">详情</el-button>
-                <el-button size="mini" type="danger" v-if="canCancelOrder(scope.row)" @click="cancelOrder(scope.row.orderId)">取消</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -252,6 +242,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { axios } from '../../utils/request'
+import { ElMessage } from 'element-plus'
 
 // 日期格式化函数
 const formatDate = (dateString, format = 'YYYY-MM-DD HH:mm:ss') => {
@@ -305,6 +297,11 @@ const memberInfo = ref(null)
 // 订单相关数据
 const recentOrders = ref([])
 const orderStatusMap = {
+  'PENDING': { text: '待支付', type: 'warning' },
+  'SUCCESS': { text: '支付成功', type: 'success' },
+  'FAILED': { text: '支付失败', type: 'danger' },
+  'TIMEOUT': { text: '支付超时', type: 'danger' },
+  // 保留数字格式的映射以兼容旧数据
   0: { text: '待支付', type: 'warning' },
   1: { text: '已支付', type: 'success' },
   2: { text: '已发货', type: 'primary' },
@@ -313,25 +310,32 @@ const orderStatusMap = {
   5: { text: '已退款', type: 'danger' }
 }
 
-// 消费统计数据 - 简化结构
+// 消费统计数据 - 使用空值而非假数据
 const consumptionData = reactive({
   totalAmount: 0,
   orderCount: 0,
   bookCount: 0,
-  monthlyStats: [
-    { month: '1月', amount: 0 },
-    { month: '2月', amount: 0 },
-    { month: '3月', amount: 50 },
-    { month: '4月', amount: 100 },
-    { month: '5月', amount: 150 },
-    { month: '6月', amount: 0 }
-  ]
+  monthlyStats: (() => {
+    const now = new Date()
+    const stats = []
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      stats.push({
+        month: `${date.getMonth() + 1}月`,
+        amount: 0
+      })
+    }
+    return stats
+  })()
 })
 
 // 头像上传相关
 const avatarUploadVisible = ref(false)
 const avatarPreview = ref('')
 const avatarFile = ref(null)
+
+// 会员相关对话框
+const deleteMemberDialogVisible = ref(false)
 
 // 编辑表单相关 - 扩展表单
 const editFormVisible = ref(false)
@@ -384,7 +388,7 @@ const getMemberLevelTagType = (level) => {
     case 3:
       return 'danger' // 红色
     default:
-      return '' // 默认灰色
+      return 'info' // 默认蓝色（而不是空字符串）
   }
 }
 
@@ -403,16 +407,12 @@ const getDiscountByLevel = (level) => {
 
 // 订单相关方法
 const getOrderStatusText = (status) => {
-  return orderStatusMap[status]?.text || '未知状态'
+  console.log('订单状态:', status, '类型:', typeof status)
+  return orderStatusMap[status]?.text || `未知状态(${status})`
 }
 
 const getOrderStatusType = (status) => {
   return orderStatusMap[status]?.type || 'info'
-}
-
-const canCancelOrder = (order) => {
-  // 只有待支付和已支付（未发货）的订单可以取消
-  return [0, 1].includes(order.status)
 }
 
 // 替换 echarts 图表，使用 el-progress 来显示每月消费数据
@@ -429,103 +429,371 @@ const getProgressColor = (percentage) => {
 }
 
 // 数据加载函数
-const fetchUserInfo = () => {
-  // 模拟从API获取用户数据
-  // 实际项目中应替换为真实API调用
-  setTimeout(() => {
-    userInfo.name = '测试用户'
-    userInfo.email = 'test@example.com'
-    userInfo.telephone = '13800138000'
-    userInfo.address = '北京市海淀区XX街道'
-    userInfo.birthday = '1990-01-01'
-    userInfo.gender = 1
-  }, 500)
+const fetchUserInfo = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      throw new Error('未找到用户登录信息')
+    }
+    
+    console.log(`尝试获取用户 ${username} 的信息，token存在: ${!!token}`)
+    
+    // 对用户名进行URL编码，确保中文字符正确传输
+    const encodedUsername = encodeURIComponent(username)
+    console.log(`原始用户名: ${username}, 编码后: ${encodedUsername}`)
+    
+    // 直接使用原始axios请求，确保URL路径正确
+    const response = await axios.get(`/api/accounts/${encodedUsername}`, {
+      headers: { token }
+    })
+      console.log('API响应状态:', response.status)
+    console.log('API响应数据:', response.data)
+    
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
+      const userData = response.data.data
+      
+      // 更新用户信息
+      userInfo.id = userData.id
+      userInfo.username = userData.username
+      userInfo.name = userData.name || userData.username
+      userInfo.email = userData.email
+      userInfo.telephone = userData.telephone
+      userInfo.address = userData.location // 使用location作为地址字段
+      userInfo.createTime = userData.createTime ? new Date(userData.createTime) : new Date()
+      
+      // 会员等级
+      if (userData.memberLevel !== undefined) {
+        memberLevel.value = userData.memberLevel
+      }
+      
+      console.log('成功获取用户信息:', userData)
+      ElMessage.success('个人信息加载成功')
+    } else {
+      throw new Error(response.data?.msg || '获取用户信息失败')
+    }
+  } catch (error) {
+    console.error('获取用户信息出错:', error)
+    ElMessage.error('获取用户信息失败: ' + (error.response?.data?.msg || error.message))
+    throw error
+  }
 }
 
-const fetchMemberInfo = () => {
-  // 模拟从API获取会员数据
-  // 实际项目中应替换为真实API调用
-  const storedMemberLevel = localStorage.getItem('memberLevel')
-  memberLevel.value = storedMemberLevel ? parseInt(storedMemberLevel) : 0
+// 修改fetchMemberInfo函数 - 目前可能后端还没有实现会员API
+const fetchMemberInfo = async () => {
+  try {
+    // 如果后端没有会员API，我们根据会员等级简单创建会员信息
+    if (memberLevel.value > 0) {
+      // 暂时不调用API，直接创建memberInfo对象
+      memberInfo.value = {
+        level: memberLevel.value,
+        discountRate: getDiscountByLevel(memberLevel.value) / 10,
+        createTime: new Date().toISOString()
+      }
+      console.log('创建会员信息:', memberInfo.value)
+    } else {
+      memberInfo.value = null
+    }
+  } catch (error) {
+    console.error('获取会员信息出错:', error)
+    memberInfo.value = null
+  }
+}
+
+// 修改fetchRecentOrders函数 - 使用简化的API路径或暂时不调用API
+const fetchRecentOrders = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      recentOrders.value = []
+      return
+    }
+    
+    // 对用户名进行URL编码
+    const encodedUsername = encodeURIComponent(username)
+    
+    // 尝试获取真实订单数据
+    const response = await axios.get('/api/orders', {
+      params: { 
+        username: encodedUsername,
+        limit: 5 
+      },
+      headers: { token }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      recentOrders.value = response.data.data || []
+      console.log('获取到的订单数据:', recentOrders.value)
+      // 打印每个订单的状态信息
+      recentOrders.value.forEach((order, index) => {
+        console.log(`订单${index + 1} - ID: ${order.orderId}, 状态: ${order.status}, 状态类型: ${typeof order.status}`)
+      })
+        // 从最近订单数据中计算基础统计信息
+      calculateConsumptionStatsFromOrders(recentOrders.value)
+    } else {
+      recentOrders.value = []
+      console.error('获取订单记录失败:', response.data?.msg)
+    }
+  } catch (error) {
+    console.error('获取订单记录出错:', error)
+    recentOrders.value = []
+  }
+}
+
+// 修改fetchConsumptionStats函数，从订单数据中计算统计信息
+const fetchConsumptionStats = async () => {
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      resetConsumptionData()
+      return
+    }
+    
+    // 对用户名进行URL编码
+    const encodedUsername = encodeURIComponent(username)
+    
+    // 获取所有订单数据用于统计（不限制数量）
+    const response = await axios.get('/api/orders', {
+      params: { 
+        username: encodedUsername
+        // 移除limit参数以获取所有订单
+      },
+      headers: { token }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      const allOrders = response.data.data || []
+      console.log('获取到所有订单数据用于统计:', allOrders.length, '个订单')
+      
+      // 从所有订单数据中计算消费统计
+      calculateConsumptionStatsFromAllOrders(allOrders)
+    } else {
+      // 如果API返回错误，重置为空数据
+      resetConsumptionData()
+      console.error('获取订单数据失败:', response.data?.msg)
+    }
+  } catch (error) {
+    console.error('获取订单数据失败:', error.response?.data?.msg || error.message)
+    // 初始化空数据
+    resetConsumptionData()
+  }
+}
+
+// 新增：从订单数据计算消费统计的函数
+const calculateConsumptionStatsFromOrders = (orders) => {
+  // 这个函数用于从最近的订单数据计算基本统计，但不包括月度统计
+  if (!orders || orders.length === 0) {
+    return
+  }
   
-  if (memberLevel.value > 0) {
-    memberInfo.value = {
-      id: '1',
-      level: memberLevel.value
+  console.log('从订单计算基本统计...', orders.length, '个订单')
+  
+  // 计算订单的统计
+  let totalAmount = 0
+  let orderCount = 0
+  let bookCount = 0
+  
+  orders.forEach(order => {
+    // 只统计成功支付的订单
+    if (order.status === 'SUCCESS' || order.status === 1 || order.status === 3) {
+      totalAmount += order.totalAmount || 0
+      orderCount += 1
+      // 如果订单中有书籍数量信息，可以累加
+      bookCount += order.bookCount || 1 // 假设每个订单默认包含1本书
+    }
+  })
+    // 只有从最近订单计算时，才更新基础统计（避免与完整统计冲突）
+  // 注意：如果 fetchConsumptionStats 已经完成，则不覆盖完整统计数据
+  if (orders === recentOrders.value && consumptionData.monthlyStats.every(stat => stat.amount === 0)) {
+    // 只有月度统计为空时，才用最近订单的统计数据
+    consumptionData.totalAmount = totalAmount
+    consumptionData.orderCount = orderCount  
+    consumptionData.bookCount = bookCount
+    console.log('使用最近订单的统计数据')
+  } else if (orders !== recentOrders.value) {
+    // 如果不是最近订单，则只记录日志
+    console.log('从其他订单数据计算的统计数据（不更新UI）')
+  }
+  
+  console.log(`订单统计 - 金额: ${totalAmount}, 订单数: ${orderCount}, 书籍数: ${bookCount}`)
+}
+
+// 新增：从所有订单数据计算完整的消费统计
+const calculateConsumptionStatsFromAllOrders = (allOrders) => {
+  console.log('从所有订单计算完整统计...')
+  
+  // 重置统计数据
+  consumptionData.totalAmount = 0
+  consumptionData.orderCount = 0
+  consumptionData.bookCount = 0
+  
+  // 初始化最近6个月的统计
+  const now = new Date()
+  const monthlyStats = []
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    monthlyStats.push({
+      month: `${date.getMonth() + 1}月`,
+      amount: 0,
+      year: date.getFullYear(),
+      monthNum: date.getMonth()
+    })
+  }
+  
+  // 遍历所有订单进行统计
+  allOrders.forEach(order => {
+    // 只统计成功支付的订单
+    if (order.status === 'SUCCESS' || order.status === 1 || order.status === 3) {
+      const orderAmount = order.totalAmount || 0
+      
+      // 累计总统计
+      consumptionData.totalAmount += orderAmount
+      consumptionData.orderCount += 1
+      consumptionData.bookCount += order.bookCount || 1
+      
+      // 月度统计
+      if (order.createTime) {
+        const orderDate = new Date(order.createTime)
+        const orderYear = orderDate.getFullYear()
+        const orderMonth = orderDate.getMonth()
+        
+        // 查找对应的月份并累加金额
+        const monthStat = monthlyStats.find(stat => 
+          stat.year === orderYear && stat.monthNum === orderMonth
+        )
+        
+        if (monthStat) {
+          monthStat.amount += orderAmount
+        }
+      }
+    }
+  })
+  
+  // 更新月度统计数据（移除year和monthNum临时字段）
+  consumptionData.monthlyStats = monthlyStats.map(stat => ({
+    month: stat.month,
+    amount: Math.round(stat.amount * 100) / 100 // 保留两位小数
+  }))
+  
+  console.log('完整统计结果:', {
+    totalAmount: consumptionData.totalAmount,
+    orderCount: consumptionData.orderCount,
+    bookCount: consumptionData.bookCount,
+    monthlyStats: consumptionData.monthlyStats
+  })
+}
+
+// 修改resetConsumptionData函数，允许只重置特定字段
+const resetConsumptionData = (field = 'all') => {
+  if (field === 'all' || field === 'totalAmount') {
+    consumptionData.totalAmount = 0
+  }
+  if (field === 'all' || field === 'orderCount') {
+    consumptionData.orderCount = 0
+  }
+  if (field === 'all' || field === 'bookCount') {
+    consumptionData.bookCount = 0
+  }  if (field === 'all' || field === 'monthlyStats') {
+    const now = new Date()
+    consumptionData.monthlyStats = []
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      consumptionData.monthlyStats.push({
+        month: `${date.getMonth() + 1}月`,
+        amount: 0
+      })
     }
   }
 }
 
-const fetchRecentOrders = () => {
-  // 模拟获取最近订单数据
-  recentOrders.value = [
-    { orderId: 'ORD20230001', createTime: '2023-05-01T08:30:00', totalAmount: 99.90, status: 3 },
-    { orderId: 'ORD20230002', createTime: '2023-05-15T14:20:00', totalAmount: 149.60, status: 2 },
-    { orderId: 'ORD20230003', createTime: '2023-05-20T11:45:00', totalAmount: 50.00, status: 1 }
-  ]
-}
-
-const fetchConsumptionStats = () => {
-  // 模拟获取消费统计数据
-  consumptionData.totalAmount = 299.50
-  consumptionData.orderCount = 3
-  consumptionData.bookCount = 5
-  
-  // 模拟月度数据 - 保留不变
-  consumptionData.monthlyStats = [
-    { month: '1月', amount: 0 },
-    { month: '2月', amount: 0 },
-    { month: '3月', amount: 50 },
-    { month: '4月', amount: 100 },
-    { month: '5月', amount: 150 },
-    { month: '6月', amount: 0 }
-  ]
-}
-
-// 头像上传相关方法
-const showAvatarUpload = () => {
-  avatarUploadVisible.value = true
-  avatarPreview.value = userInfo.avatar || defaultAvatar
-  avatarFile.value = null
-}
-
-const beforeAvatarUpload = (file) => {
-  const isJPG = file.type === 'image/jpeg'
-  const isPNG = file.type === 'image/png'
-  const isLt2M = file.size / 1024 / 1024 < 2
-
-  if (!isJPG && !isPNG) {
-    ElMessage.error('头像只能是JPG或PNG格式!')
-    return false
+// 修改submitEditForm函数，使用正确的API路径
+const submitEditForm = async () => {
+  try {
+    // 获取token
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('未找到用户登录信息')
+    }
+    
+    // 创建符合后端要求的更新对象
+    const updateInfo = {
+      name: editForm.name,
+      email: editForm.email,
+      telephone: editForm.telephone,
+      location: editForm.address, // 注意：字段名称是location而不是address
+      // birthday和gender字段可能需要后端支持
+    }
+    
+    // 使用user.ts中定义的API
+    const response = await axios.put('/api/accounts', updateInfo, {
+      headers: {
+        'Content-Type': 'application/json',
+        token
+      }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      // 更新本地用户信息
+      userInfo.name = editForm.name
+      userInfo.email = editForm.email
+      userInfo.telephone = editForm.telephone
+      userInfo.address = editForm.address // 在前端仍然使用address
+      
+      ElMessage.success('个人信息更新成功')
+      editFormVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '更新个人信息失败')
+    }
+  } catch (error) {
+    console.error('更新个人信息出错:', error)
+    ElMessage.error('更新个人信息失败')
   }
-  if (!isLt2M) {
-    ElMessage.error('头像大小不能超过 2MB!')
-    return false
-  }
-  
-  return true
 }
 
-const handleAvatarUpload = (options) => {
-  const file = options.file
-  avatarFile.value = file
-  
-  // 本地预览
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    avatarPreview.value = e.target.result
-  }
-  reader.readAsDataURL(file)
-}
-
-const confirmAvatarUpload = () => {
+// 修改confirmAvatarUpload函数 - 头像上传API可能尚未实现
+const confirmAvatarUpload = async () => {
   if (!avatarFile.value) return
   
-  // 实际项目中这里应该调用API上传文件到服务器
-  // 这里仅模拟更新头像
-  userInfo.avatar = avatarPreview.value
-  ElMessage.success('头像上传成功')
-  avatarUploadVisible.value = false
+  try {
+    // 假设头像上传API尚未实现，只在本地更新
+    console.log('头像上传API尚未实现，仅在本地更新头像')
+    
+    // 在本地更新头像预览
+    userInfo.avatar = avatarPreview.value
+    ElMessage.success('头像已在本地更新')
+    avatarUploadVisible.value = false
+    
+    // 当后端实现API后，可以取消下面的注释
+    /*
+    const formData = new FormData()
+    formData.append('file', avatarFile.value)
+    formData.append('username', localStorage.getItem('username') || '')
+    
+    const response = await axios.post('/api/accounts/avatar', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        token: localStorage.getItem('token')
+      }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      userInfo.avatar = response.data.data.avatarUrl || avatarPreview.value
+      ElMessage.success('头像上传成功')
+      avatarUploadVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '头像上传失败')
+    }
+    */
+  } catch (error) {
+    console.error('上传头像出错:', error)
+    ElMessage.error('头像上传失败')
+  }
 }
 
 // UI交互方法
@@ -540,34 +808,31 @@ const showEditForm = () => {
   editFormVisible.value = true
 }
 
-const submitEditForm = () => {
-  // 模拟表单提交
-  userInfo.name = editForm.name
-  userInfo.email = editForm.email
-  userInfo.telephone = editForm.telephone
-  userInfo.address = editForm.address
-  userInfo.birthday = editForm.birthday
-  userInfo.gender = editForm.gender
-  
-  ElMessage.success('个人信息更新成功')
-  editFormVisible.value = false
-}
-
 const deleteMemberShip = () => {
   deleteMemberDialogVisible.value = true
 }
 
-const confirmDeleteMember = () => {
-  // 模拟取消会员资格
-  localStorage.removeItem('memberLevel')
-  memberLevel.value = 0
-  memberInfo.value = null
-  deleteMemberDialogVisible.value = false
+const confirmDeleteMember = async () => {
+  try {
+    const response = await axios.post('/api/membership/cancel')
+    
+    if (response.data && response.data.code === 200) {
+      memberLevel.value = 0
+      memberInfo.value = null
+      localStorage.removeItem('memberLevel')
+      ElMessage.success('已成功取消会员资格')
+      deleteMemberDialogVisible.value = false
+    } else {
+      ElMessage.error(response.data?.msg || '取消会员失败')
+    }
+  } catch (error) {
+    console.error('取消会员出错:', error)
+    ElMessage.error('取消会员失败')
+  }
 }
 
 const goToCreateMember = () => {
-  // 模拟跳转到会员购买页面
-  router.push('/products') // 假设会员卡在商品列表中
+  router.push('/membership')
 }
 
 const viewOrderDetail = (orderId) => {
@@ -578,22 +843,19 @@ const viewAllOrders = () => {
   router.push('/orders')
 }
 
-const cancelOrder = (orderId) => {
-  // 模拟取消订单
-  recentOrders.value = recentOrders.value.map(order => {
-    if (order.orderId === orderId) {
-      return { ...order, status: 4 } // 设置为已取消
-    }
-    return order
-  })
-}
-
 // 生命周期钩子
-onMounted(() => {
-  fetchUserInfo()
-  fetchMemberInfo()
-  fetchRecentOrders()
-  fetchConsumptionStats()
+onMounted(async () => {
+  try {
+    // 先获取用户信息
+    await fetchUserInfo()
+    
+    // 然后获取其他信息
+    fetchMemberInfo()
+    fetchRecentOrders()
+    fetchConsumptionStats()
+  } catch (error) {
+    console.error('初始化数据出错:', error)
+  }
 })
 </script>
 
@@ -775,5 +1037,18 @@ onMounted(() => {
   color: #303133;
   font-size: 16px;
   font-weight: bold;
+}
+
+/* 订单状态样式 */
+.status-pending {
+  color: #e6a23c;
+}
+
+.status-success {
+  color: #67c23a;
+}
+
+.status-failed, .status-timeout {
+  color: #f56c6c;
 }
 </style>
