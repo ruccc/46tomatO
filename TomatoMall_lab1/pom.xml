@@ -8,7 +8,9 @@
     <name>TomatoMall</name>
     <description>TomatoMall</description>
     <properties>
-        <java.version>1.8</java.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <java.version>11</java.version> <!-- 与 source/target 一致 -->
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <spring-boot.version>2.7.6</spring-boot.version>
@@ -134,19 +136,16 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.8.1</version>
+                <version>3.11.0</version> <!-- 使用较新版本 -->
                 <configuration>
-                    <source>10</source>
-                    <target>10</target>
+                    <release>11</release> <!-- 替代 source/target，JDK 9+ 推荐 -->
                     <encoding>UTF-8</encoding>
                     <annotationProcessorPaths>
-                        <!-- Lombok 处理器 -->
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
                             <version>1.18.30</version>
                         </path>
-                        <!-- MapStruct 处理器 -->
                         <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
