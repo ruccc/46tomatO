@@ -27,10 +27,9 @@ public class AccountVO {
 
     private String location;
 
-    public String memberLevel;
-
-    public Account toPO(){
+    public String memberLevel;    public Account toPO(){
         Account account = new Account();
+        account.setId(id);  // 设置ID，这很重要！
         account.setUsername(username);
         account.setPassword(password);
         account.setName(name);

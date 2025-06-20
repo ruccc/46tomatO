@@ -93,9 +93,14 @@ public class AccountServiceImpl implements AccountService {
 
         accountRepository.save(account);
         return "更新成功";
+    }    public AccountVO getAccountById(Integer id){
+        return accountRepository.findById(id).get().toVO();
     }
 
-    public AccountVO getAccountById(Integer id){
-        return accountRepository.findById(id).get().toVO();
+    @Override
+    public Account getAccountEntityById(Integer id) {
+        return accountRepository.findById(id).orElseThrow(
+            () -> new IllegalArgumentException("用户不存在，ID: " + id)
+        );
     }
 }

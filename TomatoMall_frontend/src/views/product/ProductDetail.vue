@@ -224,6 +224,7 @@ import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 import defaultAvatar from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 // 导入axios - 这是之前缺少的
 import { axios } from '../../utils/request'
+import { getUserId } from '../../utils/authDebug'
 
 const route = useRoute()
 const router = useRouter()
@@ -400,22 +401,15 @@ const submitComment = async () => {
       return;
     }
     
-    commentSubmitting.value = true;
-    
-    try {
-      // 根据Comment实体的需求，必须使用数据库中存在的Account ID
-      // 从后端代码可知，Comment与Account是多对一关系，且user_id不能为空
-      const userId = 1; // 使用ID=1的用户，这通常是系统默认的第一个用户账号
+    commentSubmitting.value = true;    try {
+      console.log(`提交评论，书籍ID: ${id}`);
       
-      console.log(`尝试使用用户ID=${userId}提交评论，书籍ID: ${id}`);
-      
-      // 使用URL查询参数方式传递，匹配CommentController的@RequestParam
+      // 使用URL查询参数方式传递，后端会自动从会话中获取当前用户ID
       const response = await axios({
         method: 'post',
         url: '/api/books/comments',
         params: {
           bookId: id,
-          userId: userId,
           content: commentForm.value.content,
           rating: commentForm.value.rating
         }
