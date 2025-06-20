@@ -1,5 +1,6 @@
 package com.example.tomatomall.po;
 
+import com.example.tomatomall.vo.StockpileVO;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -27,4 +28,13 @@ public class Stockpile {
     @JoinColumn(name = "product_id")
     @JsonBackReference
     private Product product;
+
+    public StockpileVO toVO() {
+        StockpileVO vo = new StockpileVO();
+        vo.setId(id);
+        vo.setAmount(amount);
+        vo.setFrozen(frozen);
+        vo.setProductId(product != null ? product.getId() : null);
+        return vo;
+    }
 }
