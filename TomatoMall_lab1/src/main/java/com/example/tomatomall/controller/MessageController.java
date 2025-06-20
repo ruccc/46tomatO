@@ -2,86 +2,78 @@ package com.example.tomatomall.controller;
 
 import com.example.tomatomall.service.MessageService;
 import com.example.tomatomall.util.Result;
-import com.example.tomatomall.vo.PrivateConversationVO;
 import com.example.tomatomall.vo.PrivateMessageVO;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
-@Slf4j
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/messages")
-@RequiredArgsConstructor
 public class MessageController {
 
     private final MessageService messageService;
 
-    @PostMapping("/private")
-    public Result<PrivateMessageVO> sendPrivateMessage(
-            @RequestAttribute Integer userId,
+    public MessageController(MessageService messageService) {
+        this.messageService = messageService;
+    }
+
+    @PostMapping("/send")
+    public Result<PrivateMessageVO> sendMessage(
+            @RequestParam Integer senderId,
             @RequestParam Integer receiverId,
             @RequestParam String content,
-            @RequestParam(defaultValue = "text") String contentType) {
-        try {
-            PrivateMessageVO message = messageService.sendPrivateMessage(userId, receiverId, content, contentType);
-            return Result.success(message);
-        } catch (Exception e) {
-            log.error("发送私信失败", e);
-            return Result.fail(500, "发送私信失败");
-        }
+            @RequestParam String contentType) {
+        PrivateMessageVO message = messageService.sendPrivateMessage(senderId, receiverId, content, contentType);
+        return Result.success(message);
     }
 
-    @GetMapping("/private/conversations")
-    public Result<Page<PrivateConversationVO>> getPrivateConversations(
-            @RequestAttribute Integer userId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        try {
-            Page<PrivateConversationVO> conversations = messageService.getPrivateConversations(userId, page, size);
-            return Result.success(conversations);
-        } catch (Exception e) {
-            log.error("获取私信会话列表失败", e);
-            return Result.fail(500, "获取私信会话列表失败");
-        }
-    }
-
-    @GetMapping("/private/messages")
-    public Result<Page<PrivateMessageVO>> getPrivateMessages(
-            @RequestAttribute Integer userId,
+    @GetMapping("/conversation")
+    public Result<Page<PrivateMessageVO>> getConversation(
+            @RequestParam Integer userId,
             @RequestParam Integer contactId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        try {
-            Page<PrivateMessageVO> messages = messageService.getPrivateMessages(userId, contactId, page, size);
-            return Result.success(messages);
-        } catch (Exception e) {
-            log.error("获取私信消息失败", e);
-            return Result.fail(500, "获取私信消息失败");
-        }
+            @PageableDefault(size = 20) Pageable pageable) {
+        Page<PrivateMessageVO> conversation = messageService.getPrivateMessages(userId, contactId,
+                pageable.getPageNumber(), pageable.getPageSize());
+        return Result.success(conversation);
     }
 
-    @PostMapping("/private/read")
-    public Result<Void> markMessagesAsRead(
-            @RequestAttribute Integer userId,
+    @GetMapping("/contacts")
+    public Result<List<Integer>> getContacts(@RequestParam Integer userId) {
+        List<Integer> contacts = messageService.getContacts(userId);
+        return Result.success(contacts);
+    }
+
+    @GetMapping("/latest")
+    public Result<List<PrivateMessageVO>> getLatestMessages(
+            @RequestParam Integer userId,
+            @RequestParam Integer contactId,
+            @RequestParam(defaultValue = "5") int size) {
+        List<PrivateMessageVO> messages = messageService.getLatestMessages(userId, contactId, 0, size);
+        return Result.success(messages);
+    }
+
+    @GetMapping("/unread/count")
+    public Result<Integer> getUnreadMessageCount(@RequestParam Integer userId) {
+        Integer count = messageService.getUnreadMessageCount(userId);
+        return Result.success(count);
+    }
+
+    @GetMapping("/unread/count/user")
+    public Result<Integer> getUnreadMessageCountFromUser(
+            @RequestParam Integer userId,
             @RequestParam Integer senderId) {
-        try {
-            messageService.markMessagesAsRead(userId, senderId);
-            return Result.success();
-        } catch (Exception e) {
-            log.error("标记消息为已读失败", e);
-            return Result.fail(500, "标记消息为已读失败");
-        }
+        Integer count = messageService.getUnreadMessageCountFromUser(userId, senderId);
+        return Result.success(count);
     }
 
-    @GetMapping("/private/unread-count")
-    public Result<Integer> getUnreadMessageCount(@RequestAttribute Integer userId) {
-        try {
-            int count = messageService.getUnreadMessageCount(userId);
-            return Result.success(count);
-        } catch (Exception e) {
-            log.error("获取未读消息数量失败", e);
-            return Result.fail(500, "获取未读消息数量失败");
-        }
+    @PostMapping("/mark-as-read")
+    public Result<Void> markMessagesAsRead(
+            @RequestParam Integer userId,
+            @RequestParam Integer senderId) {
+        messageService.markMessagesAsRead(userId, senderId);
+        return Result.success();
     }
 }

@@ -6,7 +6,6 @@ import com.example.tomatomall.po.PrivateMessage;
 import com.example.tomatomall.repository.AccountRepository;
 import com.example.tomatomall.repository.PrivateMessageRepository;
 import com.example.tomatomall.service.MessageService;
-import com.example.tomatomall.vo.PrivateConversationVO;
 import com.example.tomatomall.vo.PrivateMessageVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -16,14 +15,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class MessageServiceImpl implements MessageService {
 
     private final PrivateMessageRepository privateMessageRepository;
@@ -32,9 +29,11 @@ public class MessageServiceImpl implements MessageService {
     @Override
     @Transactional
     public PrivateMessageVO sendPrivateMessage(Integer senderId, Integer receiverId, String content, String contentType) {
+        // 验证接收者是否存在
         accountRepository.findById(receiverId)
                 .orElseThrow(() -> new BusinessException("接收用户不存在"));
 
+        // 不能给自己发送消息
         if (senderId.equals(receiverId)) {
             throw new BusinessException("不能给自己发送私信");
         }
@@ -44,7 +43,7 @@ public class MessageServiceImpl implements MessageService {
         message.setReceiverId(receiverId);
         message.setContent(content);
         message.setContentType(contentType);
-        message.setStatus(1); // 未读
+        message.setStatus(1); // 1表示未读
         message.setCreateTime(LocalDateTime.now().toString());
 
         PrivateMessage savedMessage = privateMessageRepository.save(message);
@@ -52,46 +51,29 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public Page<PrivateConversationVO> getPrivateConversations(Integer userId, int page, int size) {
-        // 获取所有联系人ID（发送过消息或接收过消息的用户）
-        Set<Integer> contactUserIds = new HashSet<>();
-        contactUserIds.addAll(privateMessageRepository.findReceiversBySender(userId));
-        contactUserIds.addAll(privateMessageRepository.findSendersByReceiver(userId));
-
-        List<PrivateConversationVO> conversations = contactUserIds.stream()
-                .map(contactId -> {
-                    Account contact = accountRepository.findById(contactId).orElse(null);
-                    if (contact == null) return null;
-
-                    // 获取最新的一条消息
-                    List<PrivateMessage> latestMessages = privateMessageRepository.findLatestMessages(
-                            userId, contactId, PageRequest.of(0, 1));
-                    if (latestMessages.isEmpty()) return null;
-
-                    PrivateMessage latestMessage = latestMessages.get(0);
-                    int unreadCount = privateMessageRepository.countUnreadMessagesFromUser(userId, contactId);
-
-                    PrivateConversationVO vo = new PrivateConversationVO();
-                    vo.setUserId(contactId);
-                    vo.setUsername(contact.getName());
-                    vo.setAvatar(contact.getAvatar());
-                    vo.setLastMessage(latestMessage.getContent());
-                    vo.setLastMessageTime(latestMessage.getCreateTime());
-                    vo.setUnreadCount(unreadCount);
-                    return vo;
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(conversations, PageRequest.of(page, size), conversations.size());
-    }
-
-    @Override
     public Page<PrivateMessageVO> getPrivateMessages(Integer userId, Integer contactId, int page, int size) {
         Page<PrivateMessage> messages = privateMessageRepository.findConversation(
                 userId, contactId, PageRequest.of(page, size));
-
         return messages.map(message -> convertToVO(message, userId));
+    }
+
+    @Override
+    public List<Integer> getContacts(Integer userId) {
+        List<Integer> senders = privateMessageRepository.findSendersByReceiver(userId);
+        List<Integer> receivers = privateMessageRepository.findReceiversBySender(userId);
+
+        // 合并并去重
+        senders.addAll(receivers);
+        return senders.stream().distinct().collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PrivateMessageVO> getLatestMessages(Integer userId, Integer contactId, int page, int size) {
+        List<PrivateMessage> messages = privateMessageRepository.findLatestMessages(
+                userId, contactId, PageRequest.of(page, size));
+        return messages.stream()
+                .map(message -> convertToVO(message, userId))
+                .collect(Collectors.toList());
     }
 
     @Override
