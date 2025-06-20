@@ -34,13 +34,21 @@ const router = createRouter({
         title: '主页面',
         requiresAuth: true 
       }
-    },
-    {
+    },    {
       path: '/dashboard',
       name: 'dashboard',
       component: () => import('../views/user/Dashboard.vue'),
       meta: { 
         title: '个人信息',
+        requiresAuth: true 
+      }
+    },
+    {
+      path: '/messages',
+      name: 'messages',
+      component: () => import('../views/messages/MessageCenter.vue'),
+      meta: { 
+        title: '消息中心',
         requiresAuth: true 
       }
     },

@@ -24,13 +24,19 @@
           @click="$router.push('/cart')"
         >
           购物车
-        </el-button>
-        <!-- 添加我的订单按钮 -->
+        </el-button>        <!-- 添加我的订单按钮 -->
         <el-button
           type="info"
           @click="$router.push('/orders')"
         >
           我的订单
+        </el-button>
+        <!-- 添加消息中心按钮 -->
+        <el-button
+          type="primary"
+          @click="$router.push('/messages')"
+        >
+          消息中心
         </el-button>
         <!-- 添加返回主页按钮 -->
         <el-button

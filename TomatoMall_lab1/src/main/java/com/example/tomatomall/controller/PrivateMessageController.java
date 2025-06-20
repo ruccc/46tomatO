@@ -10,6 +10,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/messages")
@@ -19,14 +20,13 @@ public class PrivateMessageController {
 
     public PrivateMessageController(PrivateMessageService privateMessageService) {
         this.privateMessageService = privateMessageService;
-    }
-
-    @PostMapping("/send")
-    public Result<PrivateMessageVO> sendMessage(
-            @RequestParam Integer senderId,
-            @RequestParam Integer receiverId,
-            @RequestParam String content,
-            @RequestParam String contentType) {
+    }    @PostMapping("/send")
+    public Result<PrivateMessageVO> sendMessage(@RequestBody Map<String, Object> request) {
+        Integer senderId = (Integer) request.get("senderId");
+        Integer receiverId = (Integer) request.get("receiverId");
+        String content = (String) request.get("content");
+        String contentType = (String) request.get("contentType");
+        
         PrivateMessageVO message = privateMessageService.sendMessage(senderId, receiverId, content, contentType);
         return Result.success(message);
     }

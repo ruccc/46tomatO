@@ -2,13 +2,16 @@
   <div class="main-container">
     <!-- 顶部导航 -->
     <el-header class="header">
-      <div class="logo">番茄书城 - 主页</div>
-      <div class="nav-buttons">
+      <div class="logo">番茄书城 - 主页</div>      <div class="nav-buttons">
         <router-link to="/products" class="nav-button">书籍列表</router-link>
         <router-link to="/advertisement/list" class="nav-button">广告列表</router-link>
         <router-link to="/dashboard" class="nav-button">个人中心</router-link>
         <!-- 添加我的订单按钮 -->
         <el-button type="info" @click="$router.push('/orders')">我的订单</el-button>
+        <!-- 添加消息中心按钮 -->
+        <el-badge :value="unreadMessageCount" :max="99" :hidden="unreadMessageCount === 0">
+          <el-button type="primary" @click="$router.push('/messages')">消息中心</el-button>
+        </el-badge>
         <el-button type="warning" @click="handleLogout">退出登录</el-button>
       </div>
     </el-header>
@@ -51,12 +54,20 @@
                 <p>查看我们丰富的书籍收藏</p>
               </div>
             </el-card>
-            
-            <el-card class="feature-card" shadow="hover" @click="$router.push('/dashboard')">
+              <el-card class="feature-card" shadow="hover" @click="$router.push('/dashboard')">
               <div class="card-content">
                 <i class="el-icon-user"></i>
                 <h3>个人中心</h3>
                 <p>管理您的个人信息和设置</p>
+              </div>
+            </el-card>
+            
+            <el-card class="feature-card" shadow="hover" @click="$router.push('/messages')">
+              <div class="card-content">
+                <i class="el-icon-chat-dot-round"></i>
+                <h3>消息中心</h3>
+                <p>查看和发送私信消息</p>
+                <el-badge v-if="unreadMessageCount > 0" :value="unreadMessageCount" class="message-badge" />
               </div>
             </el-card>
           </div>
@@ -71,10 +82,35 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
+import { getUnreadCount } from '../api/messages'
 
 const router = useRouter()
 const username = ref(localStorage.getItem('username') || '访客')
 const currentTime = ref(new Date().toLocaleString())
+const unreadMessageCount = ref(0)
+
+// 获取当前用户ID
+const getCurrentUserId = () => {
+  const userInfo = localStorage.getItem('userInfo')
+  if (userInfo) {
+    return JSON.parse(userInfo).id
+  }
+  return localStorage.getItem('userId') || 1 // 临时默认值
+}
+
+// 加载未读消息数
+const loadUnreadMessageCount = async () => {
+  try {
+    const userId = getCurrentUserId()
+    const response = await getUnreadCount(userId)
+    
+    if (response.data && response.data.code === 200) {
+      unreadMessageCount.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取未读消息数失败:', error)
+  }
+}
 
 // 更新时间的函数
 const updateTime = () => {
@@ -82,7 +118,7 @@ const updateTime = () => {
 }
 
 // 组件挂载时
-onMounted(() => {
+onMounted(async () => {
   console.log('Main组件已挂载')
   console.log('当前用户:', username.value)
   console.log('当前路由:', router.currentRoute.value.path)
@@ -97,6 +133,12 @@ onMounted(() => {
   
   // 定时更新时间
   setInterval(updateTime, 1000)
+  
+  // 加载未读消息数
+  await loadUnreadMessageCount()
+  
+  // 定时刷新未读消息数（每30秒）
+  setInterval(loadUnreadMessageCount, 30000)
 })
 
 const handleLogout = () => {
@@ -219,6 +261,7 @@ const handleLogout = () => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
+  position: relative;
 }
 
 .card-content i {
@@ -235,6 +278,12 @@ const handleLogout = () => {
 .card-content p {
   color: #666;
   text-align: center;
+}
+
+.message-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
 @keyframes fadeIn {
