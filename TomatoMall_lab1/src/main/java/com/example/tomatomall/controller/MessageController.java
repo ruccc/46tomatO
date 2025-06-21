@@ -3,6 +3,7 @@ package com.example.tomatomall.controller;
 import com.example.tomatomall.service.MessageService;
 import com.example.tomatomall.util.Result;
 import com.example.tomatomall.vo.PrivateMessageVO;
+import lombok.Data;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -20,13 +21,22 @@ public class MessageController {
         this.messageService = messageService;
     }
 
+    @Data
+    private static class SendMessageRequest {
+        private Integer senderId;
+        private Integer receiverId;
+        private String content;
+        private String contentType;
+    }
+
     @PostMapping("/send")
-    public Result<PrivateMessageVO> sendMessage(
-            @RequestParam Integer senderId,
-            @RequestParam Integer receiverId,
-            @RequestParam String content,
-            @RequestParam String contentType) {
-        PrivateMessageVO message = messageService.sendPrivateMessage(senderId, receiverId, content, contentType);
+    public Result<PrivateMessageVO> sendMessage(@RequestBody SendMessageRequest request) {
+        PrivateMessageVO message = messageService.sendPrivateMessage(
+                request.getSenderId(),
+                request.getReceiverId(),
+                request.getContent(),
+                request.getContentType()
+        );
         return Result.success(message);
     }
 
