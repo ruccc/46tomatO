@@ -88,8 +88,12 @@ export interface ShippingAddress {
 // 结算请求
 export interface CheckoutRequest {
     cartItemIds: string[];
-    shipping_address: ShippingAddress;
+    shipping_address?: ShippingAddress; // 会员卡商品不需要收货地址
     payment_method: string;
+    memberLevel?: number;
+    originalAmount?: number;
+    discountAmount?: number;
+    finalAmount?: number;
 }
 
 // 结算购物车

@@ -52,8 +52,20 @@
           </el-table>
 
           <!-- 收货地址表单 -->
-          <div class="section-title">收货信息</div>
+          <div class="section-title" v-if="!isOnlyMembershipCards">收货信息</div>
+          <div class="membership-notice" v-else>
+            <el-alert
+              title="购买会员卡无需填写收货信息"
+              type="info"
+              :closable="false"
+              show-icon>
+              <template #default>
+                会员卡为虚拟商品，购买后将自动为您的账户开通会员服务
+              </template>
+            </el-alert>
+          </div>
           <el-form 
+            v-if="!isOnlyMembershipCards"
             ref="addressFormRef"
             :model="addressForm"
             :rules="addressRules"
@@ -149,7 +161,8 @@ import { ElMessage } from 'element-plus'
 import { getCartItems, checkout } from '../../api/Book/cart'
 import type { CartItem, ShippingAddress } from '../../api/Book/cart'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
-import { getDiscountRateByLevel, getMemberLevelName } from '../../utils/membershipUtils'
+import { getDiscountRateByLevel, getMemberLevelName, isMembershipCard } from '../../utils/membershipUtils'
+import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
 const loading = ref(true)
@@ -213,6 +226,16 @@ const finalAmount = computed(() => {
   return originalTotal.value * getDiscountRateByLevel(memberLevel.value)
 })
 
+// 检查是否只有会员卡商品
+const isOnlyMembershipCards = computed(() => {
+  return checkoutItems.value.length > 0 && checkoutItems.value.every(item => isMembershipCard(item.productId))
+})
+
+// 获取折扣显示
+const getDiscountByLevel = (level: number) => {
+  return Math.round(getDiscountRateByLevel(level) * 10)
+}
+
 // 获取结算商品数据
 const fetchCheckoutItems = async () => {
   loading.value = true
@@ -267,6 +290,47 @@ const fetchCheckoutItems = async () => {
   }
 }
 
+// 处理订单创建的核心逻辑
+const processOrder = async () => {
+  submitting.value = true
+  try {
+    const checkoutRequest: any = {
+      cartItemIds: checkoutItems.value.map(item => item.cartItemId),
+      payment_method: paymentMethod.value,
+      // 确保传递会员折扣相关信息
+      memberLevel: memberLevel.value,
+      originalAmount: originalTotal.value,
+      discountAmount: discountAmount.value,
+      finalAmount: finalAmount.value
+    }
+
+    // 只有非会员卡商品才需要收货地址
+    if (!isOnlyMembershipCards.value) {
+      checkoutRequest.shipping_address = addressForm
+    }
+
+    const res = await checkout(checkoutRequest)
+    if (res.data && res.data.code === 200) {
+      const orderId = res.data.data.orderId
+      ElMessage.success('订单创建成功，正在前往支付')
+      
+      // 清除localStorage中的结算商品数据和折扣信息
+      localStorage.removeItem('checkoutItems')
+      localStorage.removeItem('checkoutMemberInfo')
+      
+      // 跳转到支付页面
+      router.push(`/pay/${orderId}`)
+    } else {
+      ElMessage.error(res.data?.msg || '提交订单失败')
+    }
+  } catch (error) {
+    console.error('提交订单时发生错误:', error)
+    ElMessage.error('提交订单失败')
+  } finally {
+    submitting.value = false
+  }
+}
+
 // 提交订单 - 确保会员折扣信息被正确传递给后端API
 const submitOrder = async () => {
   if (checkoutItems.value.length === 0) {
@@ -274,43 +338,17 @@ const submitOrder = async () => {
     return
   }
 
-  // 表单验证
-  if (!addressFormRef.value) return
-  await addressFormRef.value.validate(async (valid) => {
-    if (valid) {
-      submitting.value = true
-      try {
-        const checkoutRequest = {
-          cartItemIds: checkoutItems.value.map(item => item.cartItemId),
-          shipping_address: addressForm,
-          payment_method: paymentMethod.value,
-          // 确保传递会员折扣相关信息
-          memberLevel: memberLevel.value,
-          originalAmount: originalTotal.value,
-          discountAmount: discountAmount.value,
-          finalAmount: finalAmount.value
-        }
+  // 如果只购买会员卡，跳过地址验证
+  if (isOnlyMembershipCards.value) {
+    await processOrder()
+    return
+  }
 
-        const res = await checkout(checkoutRequest)
-        if (res.data && res.data.code === 200) {
-          const orderId = res.data.data.orderId
-          ElMessage.success('订单创建成功，正在前往支付')
-          
-          // 清除localStorage中的结算商品数据和折扣信息
-          localStorage.removeItem('checkoutItems')
-          localStorage.removeItem('checkoutMemberInfo')
-          
-          // 跳转到支付页面
-          router.push(`/pay/${orderId}`)
-        } else {
-          ElMessage.error(res.data?.msg || '提交订单失败')
-        }
-      } catch (error) {
-        console.error('提交订单时发生错误:', error)
-        ElMessage.error('提交订单失败')
-      } finally {
-        submitting.value = false
-      }
+  // 表单验证（非会员卡商品需要填写收货地址）
+  if (!addressFormRef.value) return
+  await addressFormRef.value.validate(async (valid: boolean) => {
+    if (valid) {
+      await processOrder()
     } else {
       ElMessage.error('请填写完整的收货信息')
     }
@@ -457,5 +495,15 @@ onMounted(() => {
   font-size: 20px;
   color: #ff4400;
   font-weight: bold;
+}
+
+/* 会员卡购买提示样式 */
+.membership-notice {
+  margin: 20px 0;
+}
+
+.membership-notice .el-alert {
+  border: 1px solid #e1f3ff;
+  background-color: #f4f9ff;
 }
 </style>
