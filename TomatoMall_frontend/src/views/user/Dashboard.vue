@@ -21,10 +21,7 @@
             </div>
             <div class="user-info">
               <h3>{{ userInfo.name || '未设置姓名' }}</h3>
-              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>              <p>邮箱: {{ userInfo.email || '未设置' }}</p>
-              <p>手机: {{ userInfo.telephone || '未设置' }}</p>
-              <!-- 添加地址信息 -->
-              <p>地址: {{ userInfo.address || '未设置' }}</p>
+              <p>账号: {{ userInfo.username || userInfo.email || '未设置' }}</p>              <p>邮箱: {{ userInfo.email || '未设置' }}</p>              <p>手机: {{ userInfo.telephone || '未设置' }}</p>
               
               <!-- 添加会员身份显示 -->
               <div class="member-identity">
@@ -158,36 +155,29 @@
         </el-card>
       </el-col>
     </el-row>
-    
-    <!-- 用户信息编辑表单 - 增强版 -->
+      <!-- 用户信息编辑表单 - 增强版 -->
     <el-dialog title="修改个人信息" v-model="editFormVisible" width="50%">
-      <el-form ref="editForm" :model="editForm" :rules="rules" label-width="100px">
-        <!-- 基本信息部分 -->
+      <el-form ref="editFormRef" :model="editForm" :rules="rules" label-width="100px">        <!-- 基本信息部分 -->
         <h3 class="form-section-title">基本信息</h3>
         <el-form-item label="姓名" prop="name">
-          <el-input v-model="editForm.name"></el-input>
+          <el-input 
+            v-model="editForm.name"
+            @input="(val) => console.log('姓名输入:', val)"
+            placeholder="请输入姓名">
+          </el-input>
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
-          <el-input v-model="editForm.email"></el-input>
-        </el-form-item>
-        <el-form-item label="手机号" prop="telephone">
-          <el-input v-model="editForm.telephone"></el-input>
-        </el-form-item>
-        
-        <!-- 扩展信息部分 -->
-        <h3 class="form-section-title">扩展信息</h3>
-        <el-form-item label="地址" prop="address">
-          <el-input v-model="editForm.address" type="textarea" :rows="2"></el-input>
-        </el-form-item>
-        <el-form-item label="出生日期" prop="birthday">
-          <el-date-picker v-model="editForm.birthday" type="date" placeholder="选择日期" style="width: 100%"></el-date-picker>
-        </el-form-item>
-        <el-form-item label="性别" prop="gender">
-          <el-radio-group v-model="editForm.gender">
-            <el-radio :label="1">男</el-radio>
-            <el-radio :label="2">女</el-radio>
-            <el-radio :label="0">保密</el-radio>
-          </el-radio-group>
+          <el-input 
+            v-model="editForm.email"
+            @input="(val) => console.log('邮箱输入:', val)"
+            placeholder="请输入邮箱">
+          </el-input>
+        </el-form-item>        <el-form-item label="手机号" prop="telephone">
+          <el-input 
+            v-model="editForm.telephone"
+            @input="(val) => console.log('手机号输入:', val)"
+            placeholder="请输入手机号">
+          </el-input>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -288,9 +278,6 @@ const userInfo = reactive({
   email: '',
   telephone: '',
   avatar: '',
-  address: '', // 添加地址字段
-  birthday: '', // 添加生日字段
-  gender: 0,    // 添加性别字段 (0-保密, 1-男, 2-女)
   createTime: new Date()
 })
 
@@ -348,13 +335,11 @@ const deleteMemberDialogVisible = ref(false)
 
 // 编辑表单相关 - 扩展表单
 const editFormVisible = ref(false)
+const editFormRef = ref()
 const editForm = reactive({
   name: '',
   email: '',
-  telephone: '',
-  address: '',
-  birthday: '',
-  gender: 0
+  telephone: ''
 })
 
 const rules = {
@@ -365,12 +350,8 @@ const rules = {
   email: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
-  ],
-  telephone: [
+  ],  telephone: [
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
-  ],
-  address: [
-    { max: 100, message: '地址不能超过100个字符', trigger: 'blur' }
   ]
 }
 
@@ -468,7 +449,6 @@ const fetchUserInfo = async () => {
       userInfo.name = userData.name || userData.username
       userInfo.email = userData.email
       userInfo.telephone = userData.telephone
-      userInfo.address = userData.location // 使用location作为地址字段
       userInfo.createTime = userData.createTime ? new Date(userData.createTime) : new Date()
       
       // 优先使用localStorage中存储的本地头像，每个用户有独立的存储键
@@ -563,10 +543,9 @@ const fetchRecentOrders = async () => {
         username: encodedUsername,
         limit: 5 
       },
-      headers: { token }
-    })
+      headers: { token }    })
     
-    if (response.data && response.data.code === 200) {
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       recentOrders.value = response.data.data || []
       console.log('获取到的订单数据:', recentOrders.value)
       // 打印每个订单的状态信息
@@ -605,10 +584,9 @@ const fetchConsumptionStats = async () => {
         username: encodedUsername
         // 移除limit参数以获取所有订单
       },
-      headers: { token }
-    })
+      headers: { token }    })
     
-    if (response.data && response.data.code === 200) {
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       const allOrders = response.data.data || []
       console.log('获取到所有订单数据用于统计:', allOrders.length, '个订单')
       
@@ -756,23 +734,32 @@ const resetConsumptionData = (field = 'all') => {
 
 // 修改submitEditForm函数，使用正确的API路径
 const submitEditForm = async () => {
+  // 先进行表单验证
+  if (!editFormRef.value) {
+    ElMessage.error('表单引用未找到')
+    return
+  }
+  
   try {
+    // 验证表单
+    const valid = await editFormRef.value.validate()
+    if (!valid) {
+      ElMessage.error('请检查输入内容')
+      return
+    }
+    
     // 获取token
     const token = localStorage.getItem('token')
     if (!token) {
       throw new Error('未找到用户登录信息')
     }
-    
-    // 创建符合后端要求的更新对象
+      // 创建符合后端要求的更新对象
     const updateInfo = {
       name: editForm.name,
       email: editForm.email,
-      telephone: editForm.telephone,
-      location: editForm.address, // 注意：字段名称是location而不是address
-      // birthday和gender字段可能需要后端支持
+      telephone: editForm.telephone
     }
-    
-    // 使用user.ts中定义的API
+      // 使用user.ts中定义的API
     const response = await axios.put('/api/accounts', updateInfo, {
       headers: {
         'Content-Type': 'application/json',
@@ -780,16 +767,21 @@ const submitEditForm = async () => {
       }
     })
     
-    if (response.data && response.data.code === 200) {
+    console.log('后端响应:', response)
+    console.log('响应数据:', response.data)
+    console.log('响应状态码:', response.status)
+    console.log('响应代码:', response.data?.code)
+    
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       // 更新本地用户信息
       userInfo.name = editForm.name
       userInfo.email = editForm.email
       userInfo.telephone = editForm.telephone
-      userInfo.address = editForm.address // 在前端仍然使用address
       
       ElMessage.success('个人信息更新成功')
       editFormVisible.value = false
     } else {
+      console.error('更新失败，响应数据:', response.data)
       ElMessage.error(response.data?.msg || '更新个人信息失败')
     }
   } catch (error) {
@@ -858,12 +850,14 @@ const showAvatarUpload = () => {
 }
 
 const showEditForm = () => {
+  // 添加调试信息
+  console.log('显示编辑表单, 当前用户信息:', userInfo)
+  
   editForm.name = userInfo.name
   editForm.email = userInfo.email
   editForm.telephone = userInfo.telephone
-  editForm.address = userInfo.address
-  editForm.birthday = userInfo.birthday
-  editForm.gender = userInfo.gender
+  
+  console.log('初始化编辑表单数据:', editForm)
   
   editFormVisible.value = true
 }
@@ -873,10 +867,9 @@ const deleteMemberShip = () => {
 }
 
 const confirmDeleteMember = async () => {
-  try {
-    const response = await axios.post('/api/membership/cancel')
+  try {    const response = await axios.post('/api/membership/cancel')
     
-    if (response.data && response.data.code === 200) {
+    if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       memberLevel.value = 0
       memberInfo.value = null
       localStorage.removeItem('memberLevel')

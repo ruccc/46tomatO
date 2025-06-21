@@ -79,39 +79,56 @@ public class AccountServiceImpl implements AccountService {
         
         log.info("用户登录成功: {}", username);
         return tokenUtil.getToken(account);
-    }
-
-    @Override
+    }    @Override
     public String updateAccount(AccountVO accountVO) {
+        log.info("开始更新用户信息，收到的数据: {}", accountVO);
+        
         Account account = securityUtil.getCurrentAccount();
+        log.info("从安全上下文获取的当前用户: {}", account != null ? 
+                String.format("ID=%d, username=%s, name=%s", account.getId(), account.getUsername(), account.getName()) : 
+                "null");
+        
+        if (account == null) {
+            log.error("无法获取当前用户信息，更新失败");
+            throw new RuntimeException("无法获取当前用户信息");
+        }
 
         // 只更新非空字段
         if (accountVO.getName() != null) {
+            log.info("更新姓名: {} -> {}", account.getName(), accountVO.getName());
             account.setName(accountVO.getName());
         }
         if (accountVO.getLocation() != null) {
+            log.info("更新地址: {} -> {}", account.getLocation(), accountVO.getLocation());
             account.setLocation(accountVO.getLocation());
         }
         if (accountVO.getTelephone() != null) {
+            log.info("更新电话: {} -> {}", account.getTelephone(), accountVO.getTelephone());
             account.setTelephone(accountVO.getTelephone());
         }
         if (accountVO.getEmail() != null) {
+            log.info("更新邮箱: {} -> {}", account.getEmail(), accountVO.getEmail());
             account.setEmail(accountVO.getEmail());
-        }
-        if (accountVO.getAvatar() != null) {
+        }        if (accountVO.getAvatar() != null) {
+            log.info("更新头像: {} -> {}", account.getAvatar(), accountVO.getAvatar());
             account.setAvatar(accountVO.getAvatar());
         }
         if (accountVO.getPassword() != null) {
+            log.info("更新密码（已加密）");
             account.setPassword(passwordEncoder.encode(accountVO.getPassword()));
         }
         if (accountVO.getRole() != null) {
+            log.info("更新角色: {} -> {}", account.getRole(), accountVO.getRole());
             account.setRole(accountVO.getRole());
         }
         if (accountVO.getMemberLevel() != null) {
+            log.info("更新会员等级: {} -> {}", account.getMemberLevel(), accountVO.getMemberLevel());
             account.setMemberLevel(accountVO.getMemberLevel());
         }
 
-        accountRepository.save(account);
+        Account savedAccount = accountRepository.save(account);
+        log.info("用户信息更新完成: ID={}, username={}, name={}", 
+                savedAccount.getId(), savedAccount.getUsername(), savedAccount.getName());
         return "更新成功";
     }
 

@@ -57,15 +57,33 @@ public class AccountController {
             log.warn("用户注册失败: {}", result);
             return Response.buildFailure(result, "400");
         }
+    }    /**
+     * 更新用户信息（JSON格式，不支持头像上传）
+     */
+    @PutMapping(consumes = "application/json")
+    public Response<String> updateUserJson(@RequestBody AccountVO accountVO) {
+        try {
+            log.info("收到JSON格式的用户信息更新请求，AccountVO用户名: {}", accountVO.getUsername());
+            log.info("请求数据: name={}, email={}, telephone={}, location={}", 
+                    accountVO.getName(), accountVO.getEmail(), accountVO.getTelephone(), accountVO.getLocation());
+            
+            String result = accountService.updateAccount(accountVO);
+            log.info("用户信息更新结果: {}", result);
+            return Response.buildSuccess(result);
+        } catch (Exception e) {
+            log.error("更新用户信息失败", e);
+            return Response.buildFailure("更新用户信息失败: " + e.getMessage(), "400");
+        }
     }
 
     /**
      * 更新用户信息（支持头像上传）
      */
-    @PutMapping()
+    @PutMapping(consumes = "multipart/form-data")
     public Response<String> updateUser(@RequestPart(required = false) MultipartFile avatarFile,
                                        @RequestPart AccountVO accountVO) {
         try {
+            log.info("收到multipart格式的用户信息更新请求，用户名: {}", accountVO.getUsername());
             // 如果有上传头像文件，先上传到OSS
             if (avatarFile != null && !avatarFile.isEmpty()) {
                 String avatarUrl = ossService.uploadAvatar(avatarFile);
