@@ -14,10 +14,6 @@ public interface MemberService {
     MemberVO updateMember(MemberVO memberVO);
     void deleteMember(String id);
 
-    // 会员积分相关
-    void addPoints(String memberId, Integer points, String source);
-    void deductPoints(String memberId, Integer points, String remark);
-    List<PointRecordVO> getPointRecords(String memberId);
 
     // 会员等级相关
     MemberVO upgradeMemberLevel(String memberId);

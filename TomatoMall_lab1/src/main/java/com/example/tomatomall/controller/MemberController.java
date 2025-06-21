@@ -93,48 +93,11 @@ public class MemberController {
         }
     }
 
-    @PostMapping("/{memberId}/points/add")
-    public Result<String> addPoints(@PathVariable String memberId,
-                                    @RequestParam Integer points,
-                                    @RequestParam String source) {
-        try {
-            memberService.addPoints(memberId, points, source);
-            return Result.success("积分添加成功");
-        } catch (MemberNotFoundException e) {
-            return Result.fail(404, "会员不存在");
-        } catch (Exception e) {
-            log.error("添加积分失败", e);
-            return Result.fail(500, "服务器内部错误");
-        }
-    }
 
-    @PostMapping("/{memberId}/points/deduct")
-    public Result<String> deductPoints(@PathVariable String memberId,
-                                       @RequestParam Integer points,
-                                       @RequestParam String remark) {
-        try {
-            memberService.deductPoints(memberId, points, remark);
-            return Result.success("积分扣除成功");
-        } catch (MemberNotFoundException e) {
-            return Result.fail(404, "会员不存在");
-        } catch (BusinessException e) {
-            return Result.fail(400, e.getMessage());
-        } catch (Exception e) {
-            log.error("扣除积分失败", e);
-            return Result.fail(500, "服务器内部错误");
-        }
-    }
 
-    @GetMapping("/{memberId}/points/records")
-    public Result<List<PointRecordVO>> getPointRecords(@PathVariable String memberId) {
-        try {
-            List<PointRecordVO> records = memberService.getPointRecords(memberId);
-            return Result.success(records);
-        } catch (Exception e) {
-            log.error("获取积分记录失败", e);
-            return Result.fail(500, "服务器内部错误");
-        }
-    }
+
+
+
 
     @PostMapping("/{memberId}/upgrade")
     public Result<MemberVO> upgradeMemberLevel(@PathVariable String memberId) {

@@ -20,16 +20,16 @@ import java.util.UUID;
 public class MemberServiceImpl implements MemberService {
     private final MemberRepository memberRepository;
     private final MemberLevelRepository memberLevelRepository;
-    private final PointRecordRepository pointRecordRepository;
+
     private final AccountRepository accountRepository;
 
     public MemberServiceImpl(MemberRepository memberRepository,
                              MemberLevelRepository memberLevelRepository,
-                             PointRecordRepository pointRecordRepository,
+
                              AccountRepository accountRepository) {
         this.memberRepository = memberRepository;
         this.memberLevelRepository = memberLevelRepository;
-        this.pointRecordRepository = pointRecordRepository;
+
         this.accountRepository = accountRepository;
     }
 
@@ -113,63 +113,6 @@ public class MemberServiceImpl implements MemberService {
     }
 
     @Override
-    public void addPoints(String memberId, Integer points, String source) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(MemberNotFoundException::new);
-
-        member.setPoints(member.getPoints() + points);
-        memberRepository.save(member);
-
-        // 记录积分变动
-        PointRecord record = new PointRecord();
-        record.setMemberId(memberId);
-        record.setChangePoints(points);
-        record.setSource(source);
-        record.setRemainingPoints(member.getPoints());
-        record.setCreateTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        pointRecordRepository.save(record);
-    }
-
-    @Override
-    public void deductPoints(String memberId, Integer points, String remark) {
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(MemberNotFoundException::new);
-
-        if (member.getPoints() < points) {
-            throw new BusinessException("积分不足");
-        }
-
-        member.setPoints(member.getPoints() - points);
-        memberRepository.save(member);
-
-        // 记录积分变动
-        PointRecord record = new PointRecord();
-        record.setMemberId(memberId);
-        record.setChangePoints(-points);
-        record.setSource(remark);
-        record.setRemainingPoints(member.getPoints());
-        record.setCreateTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        pointRecordRepository.save(record);
-    }
-
-    @Override
-    public List<PointRecordVO> getPointRecords(String memberId) {
-        List<PointRecord> records = pointRecordRepository.findByMemberId(memberId);
-        List<PointRecordVO> result = new ArrayList<>();
-        for (PointRecord record : records) {
-            PointRecordVO vo = new PointRecordVO();
-            vo.setId(record.getId());
-            vo.setMemberId(record.getMemberId());
-            vo.setChangePoints(record.getChangePoints());
-            vo.setSource(record.getSource());
-            vo.setRemainingPoints(record.getRemainingPoints());
-            vo.setCreateTime(record.getCreateTime());
-            result.add(vo);
-        }
-        return result;
-    }
-
-    @Override
     public MemberVO upgradeMemberLevel(String memberId) {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(MemberNotFoundException::new);
@@ -212,8 +155,7 @@ public class MemberServiceImpl implements MemberService {
         member.setLastLoginTime(LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         memberRepository.save(member);
 
-        // 登录奖励积分
-        addPoints(memberId, 10, "每日登录奖励");
+
     }
 
     private MemberVO convertToVO(Member member) {
