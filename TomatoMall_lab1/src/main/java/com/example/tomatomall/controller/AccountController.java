@@ -1,13 +1,16 @@
 package com.example.tomatomall.controller;
 
 import com.example.tomatomall.service.AccountService;
+import com.example.tomatomall.service.OssService;
 import com.example.tomatomall.vo.AccountVO;
 import com.example.tomatomall.vo.Response;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 
@@ -23,7 +26,9 @@ public class AccountController {
         private String password;
     }
     @Resource
-    AccountService accountService;    /**
+    AccountService accountService;
+    OssService ossService;
+    /**
      * 获取用户详情
      */
     @GetMapping("/{username}")
@@ -48,13 +53,24 @@ public class AccountController {
     }
 
     /**
-     * 更新用户信息
+     * 更新用户信息（支持头像上传）
      */
     @PutMapping()
-    public Response<String> updateUser(@RequestBody AccountVO accountVO) {
-        return Response.buildSuccess(accountService.updateAccount(accountVO));
-
+    public Response<String> updateUser(@RequestPart(required = false) MultipartFile avatarFile,
+                                       @RequestPart AccountVO accountVO) {
+        try {
+            // 如果有上传头像文件，先上传到OSS
+            if (avatarFile != null && !avatarFile.isEmpty()) {
+                String avatarUrl = ossService.uploadAvatar(avatarFile);
+                accountVO.setAvatar(avatarUrl);
+            }
+            return Response.buildSuccess(accountService.updateAccount(accountVO));
+        } catch (IOException e) {
+            log.error("更新用户信息失败", e);
+            return Response.buildFailure("更新用户信息失败", "400");
+        }
     }
+
     /**
      * 登录
      */
@@ -72,18 +88,19 @@ public class AccountController {
             // URL解码，处理中文用户名
             String decodedUsername = URLDecoder.decode(username, StandardCharsets.UTF_8);
             log.info("获取用户统计信息 - 用户名: {}", decodedUsername);
-            
+
             // 简单返回默认统计数据，避免报错
             java.util.Map<String, Object> stats = new java.util.HashMap<>();
             stats.put("totalAmount", 0);
             stats.put("orderCount", 0);
             stats.put("bookCount", 0);
             stats.put("monthlyStats", new java.util.ArrayList<>());
-            
+
             return Response.buildSuccess(stats);
         } catch (Exception e) {
             log.error("获取用户统计信息失败: {}", e.getMessage(), e);
             throw e;
         }
     }
+
 }

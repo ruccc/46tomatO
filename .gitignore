@@ -2,6 +2,7 @@
 .vscode/
 TomatoMall_lab1/target/
 TomatoMall_lab1/src/main/resources/application.yml
+TomatoMall lab1/src/main/resources/application.properties
 TomatoMall_frontend/.idea
 TomatoMall_frontend/.vscode
 TomatoMall_lab1/.idea

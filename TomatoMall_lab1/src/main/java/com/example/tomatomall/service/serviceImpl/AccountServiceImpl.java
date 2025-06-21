@@ -68,10 +68,10 @@ public class AccountServiceImpl implements AccountService {
     public String updateAccount(AccountVO accountVO) {
         Account account = securityUtil.getCurrentAccount();
 
+        // 只更新非空字段
         if (accountVO.getName() != null) {
             account.setName(accountVO.getName());
         }
-
         if (accountVO.getLocation() != null) {
             account.setLocation(accountVO.getLocation());
         }
@@ -90,21 +90,22 @@ public class AccountServiceImpl implements AccountService {
         if (accountVO.getRole() != null) {
             account.setRole(accountVO.getRole());
         }
-
-        if(accountVO.getMemberLevel()!=null){
+        if (accountVO.getMemberLevel() != null) {
             account.setMemberLevel(accountVO.getMemberLevel());
         }
 
         accountRepository.save(account);
         return "更新成功";
-    }    public AccountVO getAccountById(Integer id){
+    }
+
+    public AccountVO getAccountById(Integer id){
         return accountRepository.findById(id).get().toVO();
     }
 
     @Override
     public Account getAccountEntityById(Integer id) {
         return accountRepository.findById(id).orElseThrow(
-            () -> new IllegalArgumentException("用户不存在，ID: " + id)
+                () -> new IllegalArgumentException("用户不存在，ID: " + id)
         );
     }
 }
