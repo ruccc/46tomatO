@@ -211,28 +211,35 @@
         </div>
       </template>
     </el-dialog>
-    
-    <!-- 添加头像上传对话框 -->
+      <!-- 添加头像URL设置对话框 -->
     <el-dialog title="更换头像" v-model="avatarUploadVisible" width="400px">
       <div class="avatar-upload-container">
-        <el-upload
-          class="avatar-uploader"
-          action="#"
-          :http-request="handleAvatarUpload"
-          :show-file-list="false"
-          :before-upload="beforeAvatarUpload">
-          <img v-if="avatarPreview" :src="avatarPreview" class="avatar-preview" />
-          <div v-else class="avatar-uploader-placeholder">
-            <i class="el-icon-plus avatar-uploader-icon"></i>
-            <div>点击上传</div>
-          </div>
-        </el-upload>
-        <div class="avatar-tip">支持 JPG、PNG 格式，文件大小不超过 2MB</div>
+        <el-form :model="avatarForm" label-position="top">
+          <el-form-item label="头像URL">
+            <el-input 
+              v-model="avatarForm.url" 
+              placeholder="请输入图片URL (例如: https://example.com/avatar.jpg)" 
+              clearable>
+            </el-input>
+          </el-form-item>
+        </el-form>
+        
+        <div class="avatar-preview-container" v-if="avatarForm.url">
+          <p class="preview-title">头像预览</p>
+          <img :src="avatarForm.url" class="avatar-preview" @error="handleImageError" />
+        </div>
+        
+        <div v-else class="empty-preview">
+          <i class="el-icon-picture-outline"></i>
+          <p>输入URL后可预览头像</p>
+        </div>
+        
+        <div class="avatar-tip">提示: 建议使用正方形图片，支持 JPG、PNG 等常见图片格式</div>
       </div>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="avatarUploadVisible = false">取消</el-button>
-          <el-button type="primary" @click="confirmAvatarUpload" :disabled="!avatarFile">确认</el-button>
+          <el-button type="primary" @click="confirmAvatarUrl" :disabled="!isValidImageUrl">确认</el-button>
         </div>
       </template>
     </el-dialog>
@@ -240,10 +247,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { axios } from '../../utils/request'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 
 // 日期格式化函数
 const formatDate = (dateString, format = 'YYYY-MM-DD HH:mm:ss') => {
@@ -329,10 +336,12 @@ const consumptionData = reactive({
   })()
 })
 
-// 头像上传相关
+// 头像URL设置相关
 const avatarUploadVisible = ref(false)
-const avatarPreview = ref('')
-const avatarFile = ref(null)
+const avatarForm = reactive({
+  url: ''
+})
+const isValidImageUrl = ref(true) // 默认允许提交，在图片加载失败时会设为false
 
 // 会员相关对话框
 const deleteMemberDialogVisible = ref(false)
@@ -453,8 +462,7 @@ const fetchUserInfo = async () => {
     
     if (response.data && (response.data.code === 200 || response.data.code === '200')) {
       const userData = response.data.data
-      
-      // 更新用户信息
+        // 更新用户信息
       userInfo.id = userData.id
       userInfo.username = userData.username
       userInfo.name = userData.name || userData.username
@@ -462,6 +470,19 @@ const fetchUserInfo = async () => {
       userInfo.telephone = userData.telephone
       userInfo.address = userData.location // 使用location作为地址字段
       userInfo.createTime = userData.createTime ? new Date(userData.createTime) : new Date()
+      
+      // 优先使用localStorage中存储的本地头像，每个用户有独立的存储键
+      const username = userData.username || localStorage.getItem('username')
+      const userAvatarKey = `userAvatar_${username}` // 用户特定的头像键名
+      const localAvatar = localStorage.getItem(userAvatarKey)
+      
+      if (localAvatar) {
+        userInfo.avatar = localAvatar
+        console.log(`使用用户 ${username} 的本地存储头像`)
+      } else if (userData.avatar) {
+        userInfo.avatar = userData.avatar
+        console.log('使用后端返回的头像')
+      }
       
       // 会员等级
       if (userData.memberLevel !== undefined) {
@@ -756,47 +777,65 @@ const submitEditForm = async () => {
   }
 }
 
-// 修改confirmAvatarUpload函数 - 头像上传API可能尚未实现
-const confirmAvatarUpload = async () => {
-  if (!avatarFile.value) return
-  
-  try {
-    // 假设头像上传API尚未实现，只在本地更新
-    console.log('头像上传API尚未实现，仅在本地更新头像')
-    
-    // 在本地更新头像预览
-    userInfo.avatar = avatarPreview.value
-    ElMessage.success('头像已在本地更新')
-    avatarUploadVisible.value = false
-    
-    // 当后端实现API后，可以取消下面的注释
-    /*
-    const formData = new FormData()
-    formData.append('file', avatarFile.value)
-    formData.append('username', localStorage.getItem('username') || '')
-    
-    const response = await axios.post('/api/accounts/avatar', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        token: localStorage.getItem('token')
-      }
-    })
-    
-    if (response.data && response.data.code === 200) {
-      userInfo.avatar = response.data.data.avatarUrl || avatarPreview.value
-      ElMessage.success('头像上传成功')
-      avatarUploadVisible.value = false
-    } else {
-      ElMessage.error(response.data?.msg || '头像上传失败')
-    }
-    */
-  } catch (error) {
-    console.error('上传头像出错:', error)
-    ElMessage.error('头像上传失败')
+// 图片URL验证错误处理
+const handleImageError = () => {
+  isValidImageUrl.value = false
+  ElMessage.warning('图片URL无效或无法加载，请检查链接是否正确')
+}
+
+// 监听URL输入，重置验证状态
+const watchAvatarUrl = (newUrl) => {
+  if (newUrl) {
+    isValidImageUrl.value = true // 每当URL改变时，重置为有效状态
   }
 }
 
+// 确认并保存头像URL
+const confirmAvatarUrl = () => {
+  if (!avatarForm.url || !isValidImageUrl.value) return
+  
+  // 显示加载提示，使用 ElLoading 服务
+  const loadingInstance = ElLoading.service({
+    fullscreen: true,
+    text: '保存头像中...',
+    background: 'rgba(0, 0, 0, 0.7)'
+  })
+  
+  // 为了更好的用户体验，添加一个短暂的延迟
+  setTimeout(() => {
+    try {      // 1. 将头像URL保存在userInfo中
+      userInfo.avatar = avatarForm.url
+      
+      // 2. 同时保存到用户专属的localStorage键中，避免不同用户间相互覆盖
+      const username = userInfo.username || localStorage.getItem('username')
+      const userAvatarKey = `userAvatar_${username}`
+      localStorage.setItem(userAvatarKey, avatarForm.url)
+      
+      // 3. 记录保存时间（也使用用户专属键）
+      localStorage.setItem(`userAvatarTime_${username}`, new Date().toISOString())
+      
+      console.log('头像URL已保存到本地存储:', avatarForm.url)
+      ElMessage.success('头像保存成功')
+      avatarUploadVisible.value = false
+    } catch (error) {
+      console.error('保存头像URL出错:', error)
+      ElMessage.error('保存头像失败: ' + error.message)
+    } finally {
+      // 关闭加载提示
+      loadingInstance.close()
+    }
+  }, 800) // 短暂延迟，增强用户体验
+}
+
 // UI交互方法
+// 显示头像上传对话框
+const showAvatarUpload = () => {
+  // 重置头像URL表单
+  avatarForm.url = userInfo.avatar || ''
+  isValidImageUrl.value = true
+  avatarUploadVisible.value = true
+}
+
 const showEditForm = () => {
   editForm.name = userInfo.name
   editForm.email = userInfo.email
@@ -842,6 +881,11 @@ const viewOrderDetail = (orderId) => {
 const viewAllOrders = () => {
   router.push('/orders')
 }
+
+// 添加对头像URL的监听
+watch(() => avatarForm.url, (newUrl) => {
+  watchAvatarUrl(newUrl)
+})
 
 // 生命周期钩子
 onMounted(async () => {
@@ -1029,6 +1073,33 @@ onMounted(async () => {
   font-size: 12px;
   color: #909399;
   margin-top: 10px;
+}
+.avatar-preview-container {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.preview-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  color: #606266;
+}
+.empty-preview {
+  width: 150px;
+  height: 150px;
+  margin: 15px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed #d9d9d9;
+  border-radius: 50%;
+  color: #c0c4cc;
+}
+.empty-preview i {
+  font-size: 36px;
+  margin-bottom: 10px;
 }
 .form-section-title {
   margin: 20px 0 10px;
