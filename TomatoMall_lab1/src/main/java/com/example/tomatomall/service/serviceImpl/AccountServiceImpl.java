@@ -38,29 +38,46 @@ public class AccountServiceImpl implements AccountService {
         }
         log.info("返回用户信息: id={}, username={}, name={}", account.getId(), account.getUsername(), account.getName());
         return account.toVO();
-    }
-
-    @Override
+    }    @Override
     public String createAccount(AccountVO accountVO) {
-        Account account = accountRepository.findByTelephone((accountVO.getTelephone()));
-        if (account != null) {
+        // 检查用户名是否已存在
+        Account existingUserByUsername = accountRepository.findByUsername(accountVO.getUsername());
+        if (existingUserByUsername != null) {
+            log.warn("注册失败 - 用户名已存在: {}", accountVO.getUsername());
             return "用户名已存在";
         }
+        
+        // 检查电话号码是否已存在
+        Account existingUserByTelephone = accountRepository.findByTelephone(accountVO.getTelephone());
+        if (existingUserByTelephone != null) {
+            log.warn("注册失败 - 电话号码已存在: {}", accountVO.getTelephone());
+            return "电话号码已存在";
+        }
+        
+        // 创建新用户
         Account newAccount = accountVO.toPO();
         newAccount.setPassword(passwordEncoder.encode(accountVO.getPassword()));
-        accountRepository.save(newAccount);
+        Account savedAccount = accountRepository.save(newAccount);
+        
+        log.info("用户注册成功 - ID: {}, 用户名: {}, 姓名: {}", 
+                savedAccount.getId(), savedAccount.getUsername(), savedAccount.getName());
         return "注册成功";
-    }
-
-    @Override
+    }    @Override
     public String login(String username, String password) throws TomatoException {
+        log.info("用户尝试登录 - 用户名: {}", username);
         Account account = accountRepository.findByUsername(username);
         if (account == null) {
+            log.warn("登录失败 - 用户不存在: {}", username);
             throw TomatoException.notFound();
         }
+        log.info("找到用户 - ID: {}, 用户名: {}, 姓名: {}", account.getId(), account.getUsername(), account.getName());
+        
         if (!passwordEncoder.matches(password, account.getPassword())) {
+            log.warn("登录失败 - 密码错误: {}", username);
             throw TomatoException.wrongPassword();
         }
+        
+        log.info("用户登录成功: {}", username);
         return tokenUtil.getToken(account);
     }
 

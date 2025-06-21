@@ -42,14 +42,21 @@ public class AccountController {
             log.error("获取用户信息失败: {}", e.getMessage(), e);
             throw e;
         }
-    }
-
-    /**
+    }    /**
      * 创建新的用户
      */
     @PostMapping()
     public Response<String> createUser(@RequestBody AccountVO accountVO) {
-        return Response.buildSuccess(accountService.createAccount(accountVO));
+        String result = accountService.createAccount(accountVO);
+        
+        // 根据结果判断是成功还是失败
+        if ("注册成功".equals(result)) {
+            return Response.buildSuccess(result);
+        } else {
+            // 用户名或电话号码已存在等失败情况
+            log.warn("用户注册失败: {}", result);
+            return Response.buildFailure(result, "400");
+        }
     }
 
     /**
