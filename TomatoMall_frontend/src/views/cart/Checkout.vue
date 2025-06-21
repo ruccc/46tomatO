@@ -162,6 +162,7 @@ import { getCartItems, checkout } from '../../api/Book/cart'
 import type { CartItem, ShippingAddress } from '../../api/Book/cart'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 import { getDiscountRateByLevel, getMemberLevelName, isMembershipCard } from '../../utils/membershipUtils'
+import { axios } from '../../utils/request'
 import type { FormInstance, FormRules } from 'element-plus'
 
 const router = useRouter()
@@ -203,9 +204,48 @@ const addressRules = reactive<FormRules>({
 })
 
 // 获取会员等级信息
-const fetchUserMemberInfo = () => {
+const fetchUserMemberInfo = async () => {
+  // 首先尝试从本地存储获取会员等级
   const storedLevel = localStorage.getItem('memberLevel')
-  memberLevel.value = storedLevel ? parseInt(storedLevel) : 0
+  if (storedLevel) {
+    memberLevel.value = parseInt(storedLevel)
+    console.log('从localStorage获取会员等级:', memberLevel.value)
+    return
+  }
+  
+  // 如果localStorage中没有，则从后端API获取
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      memberLevel.value = 0
+      return
+    }
+    
+    const encodedUsername = encodeURIComponent(username)
+    const response = await axios.get(`/api/accounts/${encodedUsername}`, {
+      headers: { token }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      const userData = response.data.data
+      if (userData.memberLevel !== undefined && userData.memberLevel !== null) {
+        memberLevel.value = parseInt(userData.memberLevel) || 0
+        // 同步到localStorage供后续使用
+        localStorage.setItem('memberLevel', memberLevel.value.toString())
+        console.log('从API获取并存储会员等级:', memberLevel.value)
+      } else {
+        memberLevel.value = 0
+        localStorage.removeItem('memberLevel')
+      }
+    } else {
+      memberLevel.value = 0
+    }
+  } catch (error) {
+    console.error('获取用户会员信息失败:', error)
+    memberLevel.value = 0
+  }
 }
 
 // 计算原价总额

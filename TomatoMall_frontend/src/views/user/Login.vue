@@ -27,8 +27,7 @@ function handleLogin() {
       const token = res.data
       localStorage.setItem('token', token)
       localStorage.setItem('username', username.value)
-      
-      getUserDetail(username.value, token).then(userRes => {
+        getUserDetail(username.value, token).then(userRes => {
         console.log('getUserDetail 返回数据:', userRes.data) // 调试信息
         
         // 存储用户基本信息
@@ -37,6 +36,15 @@ function handleLogin() {
         
         // 存储用户ID - 这是消息功能的关键！
         localStorage.setItem('userId', userRes.data.id.toString())
+        
+        // 存储会员等级 - 重要！这样购物车和结算页面才能获取到会员折扣
+        if (userRes.data.memberLevel !== undefined && userRes.data.memberLevel !== null) {
+          localStorage.setItem('memberLevel', userRes.data.memberLevel.toString())
+          console.log('登录时存储会员等级:', userRes.data.memberLevel)
+        } else {
+          localStorage.removeItem('memberLevel')
+          console.log('用户无会员等级，已清除localStorage中的会员等级')
+        }
         
         // 存储完整用户信息
         localStorage.setItem('userInfo', JSON.stringify(userRes.data))

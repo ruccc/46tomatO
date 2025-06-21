@@ -482,11 +482,32 @@ const fetchUserInfo = async () => {
       } else if (userData.avatar) {
         userInfo.avatar = userData.avatar
         console.log('使用后端返回的头像')
-      }
-      
-      // 会员等级
-      if (userData.memberLevel !== undefined) {
-        memberLevel.value = userData.memberLevel
+      }        // 会员等级 - 直接从账户信息中获取
+      if (userData.memberLevel !== undefined && userData.memberLevel !== null) {
+        memberLevel.value = parseInt(userData.memberLevel) || 0
+        console.log('从账户信息中获取会员等级:', memberLevel.value)
+        
+        // 重要：将会员等级同步到localStorage，供购物车和结算页面使用
+        localStorage.setItem('memberLevel', memberLevel.value.toString())
+        console.log('会员等级已同步到localStorage:', memberLevel.value)
+        
+        // 根据会员等级创建会员信息对象
+        if (memberLevel.value > 0) {
+          memberInfo.value = {
+            level: memberLevel.value,
+            discountRate: getDiscountByLevel(memberLevel.value) / 10,
+            createTime: new Date().toISOString()
+          }
+          console.log('创建会员信息对象:', memberInfo.value)
+        } else {
+          memberInfo.value = null
+        }
+      } else {
+        memberLevel.value = 0
+        memberInfo.value = null
+        // 清除localStorage中的会员等级
+        localStorage.removeItem('memberLevel')
+        console.log('用户不是会员，已清除localStorage中的会员等级')
       }
       
       console.log('成功获取用户信息:', userData)

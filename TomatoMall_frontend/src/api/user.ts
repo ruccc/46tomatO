@@ -17,6 +17,7 @@ type  UserDetail = {
     telephone: string,
     email: string,
     location: string,
+    memberLevel?: string, // 添加会员等级字段
 }
 
 type RegisterInfo = {

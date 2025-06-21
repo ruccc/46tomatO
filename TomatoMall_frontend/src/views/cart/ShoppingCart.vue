@@ -96,9 +96,8 @@
                 </div>
                 <div class="price-row discount-row" v-if="memberLevel > 0">
                   <span>会员折扣：</span>
-                  <span class="discount-price">-¥{{ discountAmount.toFixed(2) }}</span>
-                  <el-tag size="small" type="danger" class="discount-tag">
-                    {{ getMemberLevelName() }} {{ getDiscountByLevel(memberLevel) }}折
+                  <span class="discount-price">-¥{{ discountAmount.toFixed(2) }}</span>                  <el-tag size="small" type="danger" class="discount-tag">
+                    {{ getMemberLevelName(memberLevel) }} {{ (getDiscountRateByLevel(memberLevel) * 10).toFixed(0) }}折
                   </el-tag>
                 </div>
                 <div class="price-row final-amount">
@@ -126,6 +125,7 @@ import { getCartItems, removeFromCart, updateCartQuantity } from '../../api/Book
 import type { CartItem } from '../../api/Book/cart'
 import defaultCover from '../../assets/tomato@1x-1.0s-200px-200px.svg'
 import { getDiscountRateByLevel, getMemberLevelName } from '../../utils/membershipUtils'
+import { axios } from '../../utils/request'
 
 const router = useRouter()
 const loading = ref(true)
@@ -137,16 +137,6 @@ const memberLevel = ref(0)
 const totalAmount = computed(() => {
   return selectedItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0)
 })
-
-// 根据会员等级获取折扣
-const getDiscountByLevel = (level: number): number => {
-  switch (level) {
-    case 1: return 9  // 9折
-    case 2: return 8  // 8折
-    case 3: return 7  // 7折
-    default: return 10 // 无折扣
-  }
-}
 
 // 计算折扣金额
 const discountAmount = computed(() => {
@@ -162,10 +152,48 @@ const finalAmount = computed(() => {
 })
 
 // 获取用户会员信息
-const fetchUserMemberInfo = () => {
-  // 从本地存储获取会员等级
+const fetchUserMemberInfo = async () => {
+  // 首先尝试从本地存储获取会员等级
   const storedMemberLevel = localStorage.getItem('memberLevel')
-  memberLevel.value = storedMemberLevel ? parseInt(storedMemberLevel) : 0
+  if (storedMemberLevel) {
+    memberLevel.value = parseInt(storedMemberLevel)
+    console.log('从localStorage获取会员等级:', memberLevel.value)
+    return
+  }
+  
+  // 如果localStorage中没有，则从后端API获取
+  try {
+    const username = localStorage.getItem('username')
+    const token = localStorage.getItem('token')
+    
+    if (!username || !token) {
+      memberLevel.value = 0
+      return
+    }
+    
+    const encodedUsername = encodeURIComponent(username)
+    const response = await axios.get(`/api/accounts/${encodedUsername}`, {
+      headers: { token }
+    })
+    
+    if (response.data && response.data.code === 200) {
+      const userData = response.data.data
+      if (userData.memberLevel !== undefined && userData.memberLevel !== null) {
+        memberLevel.value = parseInt(userData.memberLevel) || 0
+        // 同步到localStorage供后续使用
+        localStorage.setItem('memberLevel', memberLevel.value.toString())
+        console.log('从API获取并存储会员等级:', memberLevel.value)
+      } else {
+        memberLevel.value = 0
+        localStorage.removeItem('memberLevel')
+      }
+    } else {
+      memberLevel.value = 0
+    }
+  } catch (error) {
+    console.error('获取用户会员信息失败:', error)
+    memberLevel.value = 0
+  }
 }
 
 // 获取购物车数据
@@ -268,11 +296,10 @@ const goToCheckout = () => {
   
   // 将选中的商品ID存储到localStorage中，用于结算页面获取
   localStorage.setItem('checkoutItems', JSON.stringify(selectedItems.value.map(item => item.cartItemId)))
-  
-  // 存储会员折扣信息
+    // 存储会员折扣信息
   localStorage.setItem('checkoutMemberInfo', JSON.stringify({
     memberLevel: memberLevel.value,
-    discount: getDiscountByLevel(memberLevel.value) / 10,
+    discount: getDiscountRateByLevel(memberLevel.value),
     originalAmount: totalAmount.value,
     finalAmount: finalAmount.value
   }))
