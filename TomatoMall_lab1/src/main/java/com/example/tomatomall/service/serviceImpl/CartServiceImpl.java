@@ -163,11 +163,24 @@ public class CartServiceImpl implements CartService {
         Order savedOrder = ordersRepository.save(orderVO.toPO());
         // 将生成的ID设置回OrderVO
         orderVO.setOrderId(savedOrder.getOrderId());
-        
-        // 保存要处理的购物车项目列表
+          // 保存要处理的购物车项目列表
         List<Cart> cartsToDelete = new java.util.ArrayList<>();
         
-        // 保存订单后再计算总金额
+        // 检查前端是否传递了折扣后的金额
+        boolean hasDiscountInfo = checkoutRequestDTO.finalAmount != null && 
+                                  checkoutRequestDTO.memberLevel != null && 
+                                  checkoutRequestDTO.memberLevel > 0;
+        
+        if (hasDiscountInfo) {
+            // 使用前端计算的折扣后金额
+            totalAmount = checkoutRequestDTO.finalAmount;
+            System.out.println("使用会员折扣后金额: " + totalAmount + 
+                              ", 会员等级: " + checkoutRequestDTO.memberLevel +
+                              ", 原价: " + checkoutRequestDTO.originalAmount +
+                              ", 折扣: " + checkoutRequestDTO.discountAmount);
+        }
+        
+        // 保存订单后再计算/验证总金额
         for (String cartItemId : checkoutRequestDTO.cartItemIds) {
             Cart cart = cartRepository.findByCartItemId(cartItemId);
             if (cart == null) {
@@ -178,8 +191,10 @@ public class CartServiceImpl implements CartService {
             Product product = productRepository.findById(productId)
                     .orElseThrow(() -> new ProductNotFoundException("商品不存在"));
 
-            // 计算总金额时考虑购物车中的商品数量
-            totalAmount = totalAmount.add(product.getPrice().multiply(new BigDecimal(cart.getQuantity())));
+            // 只有在没有折扣信息时才重新计算总金额
+            if (!hasDiscountInfo) {
+                totalAmount = totalAmount.add(product.getPrice().multiply(new BigDecimal(cart.getQuantity())));
+            }
             
             // 创建购物车项和订单的关联
             CartsOrdersRelation relation = new CartsOrdersRelation();
@@ -190,11 +205,12 @@ public class CartServiceImpl implements CartService {
             // 将购物车项目添加到待删除列表
             cartsToDelete.add(cart);
         }
-        
-        // 更新订单总金额
+          // 更新订单总金额（使用折扣后的金额）
         orderVO.setTotalAmount(totalAmount);
         savedOrder.setTotalAmount(totalAmount);
         ordersRepository.save(savedOrder);
+        
+        System.out.println("订单创建成功，订单ID: " + savedOrder.getOrderId() + ", 最终金额: " + totalAmount);
         
         // 从关联表中删除所有关联记录，然后再删除购物车项目
         for (Cart cart : cartsToDelete) {

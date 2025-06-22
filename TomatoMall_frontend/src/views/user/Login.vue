@@ -22,16 +22,36 @@ function handleLogin() {
   userLogin({
     username: username.value,
     password: password.value,
-  }).then(res => {
-    if (res.code === '200') {
+  }).then(res => {    if (res.code === '200') {
       ElMessage.success("登录成功！")
       const token = res.data
       localStorage.setItem('token', token)
       localStorage.setItem('username', username.value)
-
-      getUserDetail(username.value, token).then(userRes => {
+        getUserDetail(username.value, token).then(userRes => {
+        console.log('getUserDetail 返回数据:', userRes.data) // 调试信息
+        
+        // 存储用户基本信息
         localStorage.setItem('name', userRes.data.name)
         localStorage.setItem('role', userRes.data.role)
+        
+        // 存储用户ID - 这是消息功能的关键！
+        localStorage.setItem('userId', userRes.data.id.toString())
+        
+        // 存储会员等级 - 重要！这样购物车和结算页面才能获取到会员折扣
+        if (userRes.data.memberLevel !== undefined && userRes.data.memberLevel !== null) {
+          localStorage.setItem('memberLevel', userRes.data.memberLevel.toString())
+          console.log('登录时存储会员等级:', userRes.data.memberLevel)
+        } else {
+          localStorage.removeItem('memberLevel')
+          console.log('用户无会员等级，已清除localStorage中的会员等级')
+        }
+        
+        // 存储完整用户信息
+        localStorage.setItem('userInfo', JSON.stringify(userRes.data))
+        
+        console.log('localStorage 存储完成:')
+        console.log('- userId:', localStorage.getItem('userId'))
+        console.log('- userInfo:', localStorage.getItem('userInfo'))
         
         // 使用window.location.href进行页面刷新式跳转，而不是router.push
         // 显示加载提示

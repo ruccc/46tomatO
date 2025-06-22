@@ -31,9 +31,7 @@ public class CommentServiceImpl implements CommentService {
         this.commentRepository = commentRepository;
         this.productService = productService;
         this.accountService = accountService;
-    }
-
-    @Override
+    }    @Override
     @Transactional
     public CommentVO addComment(String bookId, Integer userId, String content, Integer rating) {
         // 检查用户是否已评论过
@@ -47,7 +45,8 @@ public class CommentServiceImpl implements CommentService {
         }
 
         Product book = productService.getProductById(bookId).toPO();
-        Account user = accountService.getAccountById(userId).toPO();
+        // 直接获取持久化的Account实体，避免transient对象问题
+        Account user = accountService.getAccountEntityById(userId);
 
         Comment comment = new Comment();
         comment.setBook(book);

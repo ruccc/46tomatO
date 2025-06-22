@@ -103,6 +103,9 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getOrderDetail, initPayment } from '../../api/Book/orders'
 import type { Order, PaymentInfo } from '../../api/Book/orders'
+// 导入会员卡工具函数
+import { isMembershipCard, getMemberLevelByProductId } from '../../utils/membershipUtils'
+import { axios } from '../../utils/request'
 
 const route = useRoute()
 const router = useRouter()
@@ -112,6 +115,9 @@ const paying = ref(false)
 const orderInfo = ref<Order | null>(null)
 const paymentForm = ref<string | null>(null)
 const paymentFormRendered = ref(false)
+
+// 添加会员等级
+const memberLevel = ref(0)
 
 // 监听paymentForm变化，处理表单渲染
 watch(paymentForm, async (newValue) => {
@@ -188,6 +194,56 @@ const fetchOrderInfo = async () => {
   }
 }
 
+// 获取当前会员等级
+const fetchMemberLevel = () => {
+  const level = localStorage.getItem('memberLevel')
+  memberLevel.value = level ? parseInt(level) : 0
+}
+
+// 检查会员卡并更新会员等级
+const checkMembershipAfterPayment = async () => {
+  try {
+    if (!orderInfo.value || orderInfo.value.status !== 'SUCCESS') return
+    
+    // 检查订单中是否包含会员卡商品
+    const orderDetails = orderInfo.value.orderItems || []
+    const membershipCards = orderDetails.filter(item => isMembershipCard(item.productId))
+    
+    if (membershipCards.length > 0) {
+      // 找出最高等级的会员卡
+      const highestLevel = Math.max(
+        ...membershipCards.map(item => getMemberLevelByProductId(item.productId))
+      )
+      
+      // 如果购买的会员卡等级比当前等级高，则更新会员等级
+      if (highestLevel > memberLevel.value) {
+        // 调用后端API更新会员等级
+        try {
+          const response = await axios.post('/api/accounts/update-member-level', {
+            level: highestLevel
+          }, {
+            headers: {
+              'Content-Type': 'application/json',
+              token: localStorage.getItem('token')
+            }
+          })
+          
+          if (response.data && response.data.code === 200) {
+            // 更新本地存储的会员等级
+            localStorage.setItem('memberLevel', highestLevel.toString())
+            memberLevel.value = highestLevel
+            ElMessage.success(`恭喜您成为${getMemberLevelName(highestLevel)}！`)
+          }
+        } catch (error) {
+          console.error('更新会员等级失败:', error)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('检查会员卡失败:', error)
+  }
+}
+
 // 发起支付
 const pay = async () => {
   if (!orderInfo.value) {
@@ -242,8 +298,38 @@ const pay = async () => {
   }
 }
 
+// 修改发起支付成功后的处理逻辑
+const handlePaymentSuccess = async () => {
+  // 刷新订单信息
+  await fetchOrderInfo()
+  
+  // 检查会员卡并更新会员等级
+  await checkMembershipAfterPayment()
+}
+
+// 将会员等级判断功能添加到onMounted
 onMounted(() => {
   fetchOrderInfo()
+  fetchMemberLevel()
+  
+  // 定期检查支付状态，如果发现支付成功，则处理会员卡逻辑
+  const checkInterval = setInterval(async () => {
+    if (orderInfo.value && orderInfo.value.status === 'PENDING') {
+      // 刷新订单信息
+      await fetchOrderInfo()
+      
+      // 如果支付成功，处理会员卡
+      if (orderInfo.value && orderInfo.value.status === 'SUCCESS') {
+        clearInterval(checkInterval)
+        await checkMembershipAfterPayment()
+      }
+    } else {
+      clearInterval(checkInterval)
+    }
+  }, 5000) // 每5秒检查一次
+  
+  // 组件卸载时清除定时器
+  return () => clearInterval(checkInterval)
 })
 </script>
 

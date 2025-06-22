@@ -9,6 +9,7 @@ import type {AxiosResponse} from "axios";
 
 
 type  UserDetail = {
+    id: number,
     username: string,
     name: string,
     role: string;
@@ -16,6 +17,7 @@ type  UserDetail = {
     telephone: string,
     email: string,
     location: string,
+    memberLevel?: string, // 添加会员等级字段
 }
 
 type RegisterInfo = {
